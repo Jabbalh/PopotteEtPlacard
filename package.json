@@ -1,0 +1,31 @@
+{
+  "name": "popotte-et-placard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt generate",
+    "generate": "nuxt generate",
+    "preview": "npx serve .output/public -s",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck",
+    "icons": "pwa-assets-generator"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^4.11.3",
+    "@supabase/supabase-js": "^2.117.3",
+    "@vite-pwa/nuxt": "^1.1.1",
+    "barcode-detector": "^3.2.2",
+    "dexie": "^4.4.6",
+    "nuxt": "^4.6.1",
+    "tailwindcss": "^4.3.3",
+    "zxing-wasm": "^3.1.3"
+  },
+  "devDependencies": {
+    "@iconify-json/lucide": "^1.2.144",
+    "@types/node": "^24.19.2",
+    "@vite-pwa/assets-generator": "^1.0.4",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.13"
+  }
+}
