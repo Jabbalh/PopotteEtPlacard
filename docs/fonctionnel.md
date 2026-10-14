@@ -2,7 +2,7 @@
 
 Popotte & Placard gère le stock alimentaire d'un foyer (frigo, congélateur, placards…), les goûts de chaque personne et propose des idées de recettes à partir du stock et des dates de péremption.
 
-L'application est une PWA mobile : elle s'installe sur l'écran d'accueil et fonctionne hors connexion.
+L'application est une PWA : elle s'installe sur l'écran d'accueil et fonctionne hors connexion. Elle est conçue d'abord pour le mobile et s'adapte à la tablette et au PC (voir § 14).
 
 ## Sommaire
 
@@ -19,7 +19,8 @@ L'application est une PWA mobile : elle s'installe sur l'écran d'accueil et fon
 11. [Bilan](#11-bilan)
 12. [Réglages du foyer](#12-réglages-du-foyer)
 13. [Hors connexion](#13-hors-connexion)
-14. [Plan des écrans](#14-plan-des-écrans)
+14. [Affichage mobile, tablette et PC](#14-affichage-mobile-tablette-et-pc)
+15. [Plan des écrans](#15-plan-des-écrans)
 
 ---
 
@@ -153,8 +154,8 @@ Règles :
   - quantité totale, nombre de lots, type d'aliment, rangement(s) ;
   - badge de péremption du lot le plus urgent ;
   - préférences des personnes du foyer : un badge par personne (prénom, couleur et icône du niveau), avec sa préférence la plus forte, allergies et aversions d'abord, 3 au maximum puis « +N » ; le survol affiche la préférence saisie. Le détail complet est sur la fiche produit.
-- Bouton **−** : sortie de stock (le lot le plus urgent est présélectionné).
-- Boutons **Ajouter** (ouvre le scanner) et ✏️ (saisie libre).
+- Bouton **−** en bout de ligne : *Retirer du stock* (le lot le plus urgent est présélectionné). Toucher le reste de la ligne ouvre la fiche produit.
+- Boutons d'ajout **Scanner** (ouvre la caméra) et **+ Manuel** (saisie libre) : flottants en bas à droite sur mobile et tablette, dans l'en-tête de la page sur PC.
 
 ### Badges de péremption
 
@@ -212,6 +213,8 @@ La popin s'ouvre depuis le stock, la fiche produit (ajout d'un lot) ou le bilan 
 ## 9. Sortie de stock et corrections
 
 ### Sortie (utilisé, jeté, offert)
+
+Fenêtre **« Retirer du stock »** (nom de l'aliment en sous-titre ; nom de la recette en titre depuis *Je la cuisine*), ouverte par le bouton **−** du stock et de *À consommer*, ou par *Retirer* sur la fiche produit.
 
 - **Raison** : Utilisé, Jeté ou Offert.
 - Pour chaque lot : **Tout** ou une quantité (plafonnée au restant).
@@ -312,7 +315,23 @@ L'icône nuage de l'en-tête indique l'état : à jour, envoi en attente (nombre
 
 Quand une nouvelle version est disponible, un bandeau propose de mettre à jour (rechargement), pour ne pas perdre une saisie en cours.
 
-## 14. Plan des écrans
+## 14. Affichage mobile, tablette et PC
+
+| | Mobile (< 768 px) | Tablette (768 à 1023 px) | PC (≥ 1024 px) |
+|---|---|---|---|
+| Navigation du foyer | Barre en bas (Stock, Idées, Bilan, Personnes, Réglages) | Barre en bas | Barre latérale à gauche, avec le nom du foyer et un retour à *Mes foyers* |
+| Listes (foyers, stock, personnes, recettes, aliments à consommer) | 1 colonne | 2 colonnes | 2 colonnes (personnes : 3 sur grand écran) |
+| Filtres de rangement du stock | Défilement horizontal | Passage à la ligne | Passage à la ligne |
+| Ajout au stock | Boutons flottants *+ Manuel* / *Scanner* | Boutons flottants | Boutons dans l'en-tête de la page |
+| Fiche produit | 1 colonne | 1 colonne | Informations et préférences du foyer à gauche (restent visibles au défilement), lots et historique à droite |
+| Bilan | 1 colonne | Rangements sur 2 colonnes | Favoris et activité à gauche, rangements à droite |
+| Réglages | 1 colonne | 1 colonne | Foyer, membres, zone sensible à gauche ; rangements et types à droite |
+| Fiche personne, *Mes goûts* | 1 colonne | 1 colonne | Préférences et recettes côte à côte |
+| Administration | 1 colonne | 1 colonne | Création d'invitation à gauche, liste à droite |
+
+L'affichage mobile est la référence : les écrans plus larges réorganisent les mêmes éléments, sans fonction en plus ou en moins. Les popins (ajout, sortie de stock, recette…) sont identiques sur tous les écrans.
+
+## 15. Plan des écrans
 
 | Route | Écran |
 |---|---|

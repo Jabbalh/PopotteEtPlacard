@@ -1,6 +1,6 @@
 # Popotte & Placard 🍲
 
-Le stock alimentaire du foyer (frigo, congélateur, placards…), les goûts de chacun et des idées de recettes — PWA mobile, utilisable hors connexion, partagée entre les membres du foyer.
+Le stock alimentaire du foyer (frigo, congélateur, placards…), les goûts de chacun et des idées de recettes — PWA mobile (adaptée tablette et PC), utilisable hors connexion, partagée entre les membres du foyer.
 
 **En ligne** : https://popotte-et-placard.vercel.app (déploiement automatique à chaque push sur `main`)
 
@@ -11,12 +11,12 @@ Le stock alimentaire du foyer (frigo, congélateur, placards…), les goûts de 
 ## Fonctionnalités
 
 - **Comptes sur invitation** : seul un administrateur crée des liens d'inscription (`/inscription/<jeton>`, page *Administration*).
-- **Mes goûts et recettes** (niveau compte) : préférences d'aliments (adore, aime, n'aime pas, allergie / interdit) et recettes préférées (liste d'aliments avec quantités et/ou texte libre).
+- **Mes goûts et recettes** (niveau compte) : préférences d'aliments (adore, aime, n'aime pas, allergie / interdit) et recettes préférées (liste d'aliments avec quantités et/ou texte libre). Un aliment peut être en stock ou non : saisie libre, proposition parmi les produits connus, ou scan du code-barres (correspondance exacte avec le produit de même code).
 - **Foyers** : des personnes, liées ou non à un compte.
   - Personne liée à un compte : ses goûts et recettes de compte sont repris **par lien** (pas de copie) ; le foyer peut les **compléter** (le complément n'existe que dans ce foyer).
   - Personne sans compte : prénom + préférences et recettes propres au foyer.
   - **Invitation** (`/rejoindre/<jeton>`, usage unique, gérée par le propriétaire) : lie un compte existant à une personne du foyer, qui obtient l'accès.
-- **Stock** : liste filtrable par rangement (Frigo, Congélateur, Autre… paramétrables par foyer), recherche, tri par péremption ou par nom.
+- **Stock** : liste filtrable par rangement (Frigo, Congélateur, Autre… paramétrables par foyer), recherche, tri par péremption ou par nom. Chaque ligne indique les préférences des personnes du foyer (allergies et aversions d'abord) ; la fiche produit les détaille.
 - **Ajout d'un produit** (popin) : scan du code-barres (caméra) → recherche sur [Open Food Facts](https://world.openfoodfacts.org) (nom, description, composition, Nutri-Score, photo), ou saisie libre (seul le nom est obligatoire). Date d'achat (aujourd'hui par défaut), date de péremption, type d'aliment (paramétrable), rangement, quantité et unité, favori (1 à 5 étoiles). Un produit déjà connu du foyer est réutilisé.
 - **Sortie de stock** : utilisé, jeté ou offert, quantité ou totalité, date modifiable, annulable. **Correction d'inventaire** possible à tout moment (fiche produit → *Modifier / corriger*).
 - **Idées** :
@@ -26,6 +26,7 @@ Le stock alimentaire du foyer (frigo, congélateur, placards…), les goûts de 
   - Sur une recette : *Je la cuisine* liste les aliments correspondants avec la quantité à retirer ; sur un aliment : seul celui-ci est proposé. Les allergies et aversions des personnes sont signalées.
 - **Bilan** : état des stocks par rangement (types d'aliments, périmés, à consommer vite), favoris en rupture ou sous leur seuil d'alerte, sorties des 30 derniers jours.
 - **Hors connexion** : toutes les données sont dans IndexedDB ; les modifications sont envoyées à Supabase dès que le réseau revient. Le décodeur de codes-barres (WebAssembly) est embarqué ; seule la recherche Open Food Facts nécessite le réseau.
+- **Mobile, tablette et PC** : conçue pour le mobile ; listes sur 2 colonnes à partir de la tablette ; sur PC, barre latérale de navigation et écrans de détail sur 2 colonnes.
 
 ## Base de données partagée avec « Pas ce soir »
 

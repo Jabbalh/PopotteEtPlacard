@@ -12,8 +12,9 @@
 8. [Scan de codes-barres et Open Food Facts](#8-scan-de-codes-barres-et-open-food-facts)
 9. [PWA et hors connexion](#9-pwa-et-hors-connexion)
 10. [Build et déploiement](#10-build-et-déploiement)
-11. [Conventions](#11-conventions)
-12. [Points d'attention](#12-points-dattention)
+11. [Affichage adaptatif](#11-affichage-adaptatif)
+12. [Conventions](#12-conventions)
+13. [Points d'attention](#13-points-dattention)
 
 ---
 
@@ -65,7 +66,7 @@ app/
 ├── plugins/supabase.client.ts      client Supabase (session persistée, PKCE)
 ├── middleware/auth.global.ts       routes publiques, redirections, garde /admin
 ├── layouts/
-│   ├── default.vue                 en-tête, menu utilisateur, barre de navigation du foyer
+│   ├── default.vue                 en-tête, menu utilisateur, navigation du foyer (barre du bas / barre latérale PC)
 │   └── auth.vue                    écrans de connexion / inscription
 ├── composables/
 │   ├── useAuth.ts                  session, cache hors ligne, rôle admin
@@ -92,7 +93,7 @@ app/
 │   ├── StarRating.vue, NutriscoreBadge.vue
 │   ├── SyncStatus.vue              état de la synchro (en-tête)
 │   └── PwaPrompts.vue              mise à jour, installation
-└── pages/                          voir docs/fonctionnel.md § 14
+└── pages/                          voir docs/fonctionnel.md § 15
 supabase/migrations/                migration SQL de l'application
 public/                             icônes PWA (générées depuis icon.svg)
 ```
@@ -259,7 +260,26 @@ npm run icons            # régénère les icônes depuis public/icon.svg
 - Variables Vercel : `NUXT_PUBLIC_SUPABASE_URL`, `NUXT_PUBLIC_SUPABASE_KEY` (clé `anon`, publique par nature : la sécurité repose sur la RLS).
 - Supabase : ajouter `https://popotte-et-placard.vercel.app/**` dans *Authentication → Redirect URLs* (liens de confirmation et de réinitialisation).
 
-## 11. Conventions
+## 11. Affichage adaptatif
+
+Mobile d'abord : les classes sans préfixe décrivent le mobile, qui ne doit pas changer ; tablette et PC sont ajoutés par les préfixes Tailwind `md:` (≥ 768 px) et `lg:` (≥ 1024 px).
+
+| Élément | Mise en œuvre |
+|---|---|
+| Layout (`layouts/default.vue`) | Contenu `max-w-2xl` → `md:max-w-4xl` → `lg:max-w-7xl` (en-tête et page). Sur PC, `<aside>` collant (`lg:sticky`, `w-60`) avec le nom du foyer (lecture Dexie) ; la barre du bas est `lg:hidden`. |
+| Listes | `grid grid-cols-1 gap-N md:grid-cols-2` |
+| Écrans de détail | `lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]` (fiche produit, administration) ; sur la fiche produit, colonne gauche `lg:sticky` |
+| Boutons d'ajout du stock | Boutons flottants `lg:hidden`, doublés dans l'en-tête par un bloc `hidden lg:flex` |
+| Bandeau PWA | `bottom-24 lg:bottom-6` (pas de barre du bas sur PC) |
+
+Deux règles à respecter :
+
+- **Toujours `grid-cols-1` sur une grille** : sans nombre de colonnes explicite, les éléments d'une grille CSS ne rétrécissent pas sous la largeur de leur texte (`min-width: auto`) et la page déborde horizontalement sur mobile. `grid-cols-N` de Tailwind vaut `repeat(N, minmax(0, 1fr))`.
+- **Garder l'ordre mobile** quand une page passe en deux colonnes (bilan, réglages) : conteneur `flex flex-col gap-5 lg:grid lg:grid-cols-2`, colonne de gauche `contents lg:flex lg:flex-col` (ses enfants participent au flux mobile), et classes `order-1`, `order-2`… sur les cartes pour fixer l'ordre mobile.
+
+Contrôle : afficher l'app dans des iframes de 390 px et 820 px (les media queries s'appliquent à la largeur de l'iframe) et vérifier `scrollWidth === clientWidth` sur chaque écran.
+
+## 12. Conventions
 
 - Interface, commentaires et messages en **français**.
 - Clés `localStorage` préfixées `pep:` ; état global de session via `useState('pep:…')`.
@@ -268,7 +288,7 @@ npm run icons            # régénère les icônes depuis public/icon.svg
 - Quantités en `numeric`, dans l'**unité du produit** (une seule unité par produit).
 - Erreurs Supabase traduites par `errorMessage()` (`utils/errors.ts`).
 
-## 12. Points d'attention
+## 13. Points d'attention
 
 - **Fonctions partagées avec Pas ce soir** : `guard_signup` et `handle_new_user` (triggers sur `auth.users`) appartiennent à Pas ce soir. Une future migration de l'une des deux applications qui les redéfinit doit préserver le fonctionnement des invitations admin.
 - **Invitation au foyer** : elle ne permet pas de créer un compte (choix délibéré : seul un admin invite à s'inscrire).
