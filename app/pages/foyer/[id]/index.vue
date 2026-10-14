@@ -150,7 +150,7 @@ function take(row: Row) {
       description="Scannez le code-barres d'un produit ou saisissez-le pour commencer."
       :actions="[
         { label: 'Scanner', icon: 'i-lucide-scan-barcode', onClick: () => openAdd(true) },
-        { label: 'Saisir', icon: 'i-lucide-pencil', color: 'neutral', variant: 'soft', onClick: () => openAdd(false) }
+        { label: 'Manuel', icon: 'i-lucide-plus', color: 'neutral', variant: 'soft', onClick: () => openAdd(false) }
       ]"
     />
 
@@ -200,15 +200,17 @@ function take(row: Row) {
             </UBadge>
           </div>
         </NuxtLink>
-        <UButton icon="i-lucide-minus" color="neutral" variant="soft" aria-label="Retirer du stock" @click="take(row)" />
+        <UButton icon="i-lucide-pencil" color="neutral" variant="soft" aria-label="Modifier le stock" @click="take(row)" />
       </li>
     </ul>
 
     <!-- Boutons d'ajout -->
     <div class="fixed z-20 right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] flex flex-col items-end gap-2">
-      <UButton icon="i-lucide-pencil" color="neutral" variant="solid" size="lg" class="rounded-full shadow-lg" aria-label="Saisir un produit" @click="openAdd(false)" />
+      <UButton icon="i-lucide-plus" color="neutral" variant="solid" size="lg" class="rounded-full shadow-lg" @click="openAdd(false)">
+        Manuel
+      </UButton>
       <UButton icon="i-lucide-scan-barcode" size="xl" class="rounded-full shadow-lg" @click="openAdd(true)">
-        Ajouter
+        Scanner
       </UButton>
     </div>
 

@@ -178,7 +178,7 @@ function names(people: { name: string }[]) {
               </UBadge>
             </div>
           </NuxtLink>
-          <UButton icon="i-lucide-minus" color="neutral" variant="soft" aria-label="Retirer du stock" @click="takeFood(f.lot)" />
+          <UButton icon="i-lucide-pencil" color="neutral" variant="soft" aria-label="Modifier le stock" @click="takeFood(f.lot)" />
         </li>
       </ul>
     </template>
