@@ -250,7 +250,7 @@ npm run icons            # régénère les icônes depuis public/icon.svg
 
 - `vercel.json` : `npm ci`, `npm run generate`, sortie `.output/public`, réécriture de toutes les routes vers `index.html`, `sw.js` jamais mis en cache, `/_nuxt/*` immuable.
 - Variables Vercel : `NUXT_PUBLIC_SUPABASE_URL`, `NUXT_PUBLIC_SUPABASE_KEY` (clé `anon`, publique par nature : la sécurité repose sur la RLS).
-- Supabase : ajouter l'URL de production dans *Authentication → Redirect URLs* (liens de confirmation et de réinitialisation).
+- Supabase : ajouter `https://popotte-et-placard.vercel.app/**` dans *Authentication → Redirect URLs* (liens de confirmation et de réinitialisation).
 
 ## 11. Conventions
 

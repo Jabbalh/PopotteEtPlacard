@@ -2,6 +2,8 @@
 
 Le stock alimentaire du foyer (frigo, congélateur, placards…), les goûts de chacun et des idées de recettes — PWA mobile, utilisable hors connexion, partagée entre les membres du foyer.
 
+**En ligne** : https://popotte-et-placard.vercel.app (déploiement automatique à chaque push sur `main`)
+
 **Documentation** : [fonctionnelle](docs/fonctionnel.md) · [technique](docs/technique.md) · [base de données](docs/base-de-donnees.md)
 
 **Stack** : Nuxt 4 (SPA) · Nuxt UI 4 · Tailwind CSS 4 · Supabase (auth + Postgres) · Dexie (IndexedDB) · Vite PWA · Vercel — même socle que [Pas ce soir](../PasCeSoir).
@@ -45,7 +47,7 @@ npm run dev
 ### Supabase (projet existant)
 
 1. **SQL Editor** → exécuter `supabase/migrations/20261014100000_popotte_init.sql` (après les migrations de Pas ce soir).
-2. **Authentication → URL Configuration → Redirect URLs** : ajouter `https://<domaine-popotte>.vercel.app/**` (et `http://localhost:3000/**` s'il n'y est pas déjà), pour les liens de confirmation d'email et de mot de passe oublié.
+2. **Authentication → URL Configuration → Redirect URLs** : ajouter `https://popotte-et-placard.vercel.app/**` (et `http://localhost:3000/**` s'il n'y est pas déjà), pour les liens de confirmation d'email et de mot de passe oublié.
 
 Les administrateurs sont ceux de `public.app_admins` (communs aux deux apps).
 
