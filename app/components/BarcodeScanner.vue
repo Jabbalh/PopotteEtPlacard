@@ -99,8 +99,8 @@ onBeforeUnmount(stop)
     <div class="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
       <video ref="video" class="size-full object-cover" playsinline muted />
       <div v-if="!error" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div class="w-4/5 h-1/3 rounded-lg border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]">
-          <div class="h-0.5 w-full bg-red-500/80 mt-[calc(50%-1px)] animate-pulse" />
+        <div class="relative w-4/5 h-1/3 rounded-lg border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]">
+          <div class="absolute inset-x-2 top-1/2 h-0.5 -translate-y-1/2 bg-red-500/80 animate-pulse" />
         </div>
       </div>
       <div v-if="starting" class="absolute inset-0 flex items-center justify-center text-white">

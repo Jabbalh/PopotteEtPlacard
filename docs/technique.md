@@ -73,7 +73,8 @@ app/
 │   ├── useSync.ts                  synchronisation IndexedDB <-> Supabase
 │   ├── useHousehold.ts             actions d'écriture + foyer, personnes, rangements, types
 │   ├── useStock.ts                 lots, restants, stock par produit, goûts par personne
-│   └── useSuggestions.ts           idées de recettes et d'aliments
+│   ├── useSuggestions.ts           idées de recettes et d'aliments
+│   └── useCatalog.ts               aliments proposés à la saisie des préférences, recherche par code-barres
 ├── utils/
 │   ├── db.ts                       types des tables et schéma Dexie
 │   ├── format.ts                   dates, quantités, libellés, valeurs par défaut
@@ -195,6 +196,12 @@ Pour chaque personne non supprimée du foyer : goûts de son compte (`user_id = 
 - Recettes = union des recettes des personnes, dédoublonnées par id (`favoredBy` = personnes qui l'ont).
 - Pour chaque aliment : lots correspondants triés par score puis péremption.
 - `coverage = aliments trouvés / aliments`, `urgency = Σ urgencyOf(lot le plus pertinent)`, `conflicts` = préférences *dislike* / *allergy* d'une personne correspondant à un aliment.
+- Avis d'une personne sur un aliment (`opinionsOn(nom, codesBarres)`) : préférence de même code-barres que le produit, sinon `matches(libellé, nom)`. Pour un ingrédient de recette, les codes-barres sont ceux des produits trouvés en stock.
+
+### Catalogue et code-barres (`useCatalog`)
+
+- `useFoodCatalog(householdId?)` : produits non supprimés du foyer (ou de tous les foyers), dédoublonnés par code-barres ou nom, avec un indicateur « en stock » ; en stock d'abord.
+- `useBarcodeLookup().lookup(code)` : produit déjà connu localement (tous foyers), sinon Open Food Facts.
 - Tris : voir [fonctionnel.md § 10](fonctionnel.md#10-idées-recherches).
 
 ### Écritures (`useHouseholdActions`)

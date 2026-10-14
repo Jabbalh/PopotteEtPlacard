@@ -2,7 +2,14 @@
 
 Postgres hébergé par Supabase, **partagé avec l'application « Pas ce soir »**.
 
-Migration de l'application : [`supabase/migrations/20261014100000_popotte_init.sql`](../supabase/migrations/20261014100000_popotte_init.sql), à exécuter dans le SQL Editor **après** les migrations de Pas ce soir.
+Migrations de l'application (dans l'ordre, dans le SQL Editor, **après** celles de Pas ce soir) :
+
+| Fichier | Contenu |
+|---|---|
+| [`20261014100000_popotte_init.sql`](../supabase/migrations/20261014100000_popotte_init.sql) | Schéma initial |
+| [`20261015000000_preferences_barcode.sql`](../supabase/migrations/20261015000000_preferences_barcode.sql) | Code-barres des préférences d'aliments |
+
+Une migration qui ajoute une colonne synchronisée doit être exécutée **avant** le déploiement de l'application qui l'utilise.
 
 ## Sommaire
 
@@ -106,6 +113,7 @@ erDiagram
         uuid household_id "XOR"
         uuid person_id "XOR"
         text label
+        text barcode "nullable"
         text level
     }
     pp_recipes {
@@ -230,6 +238,7 @@ Index : `(household_id, updated_at)`, `(household_id, barcode)` partiel.
 | `household_id` | uuid | → `pp_households` cascade | Niveau foyer |
 | `person_id` | uuid | → `pp_people` cascade | Niveau foyer |
 | `label` | text | not null, non vide | Aliment |
+| `barcode` | text | 8 à 14 chiffres ou null | Saisie par scan : correspondance exacte avec le produit de même code-barres |
 | `level` | text | `love` \| `like` \| `dislike` \| `allergy` | |
 
 Contrainte `pp_preferences_owner` : **soit** `user_id` seul, **soit** `household_id` + `person_id` (sans `user_id`).

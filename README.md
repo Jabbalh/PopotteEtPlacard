@@ -46,7 +46,7 @@ npm run dev
 
 ### Supabase (projet existant)
 
-1. **SQL Editor** → exécuter `supabase/migrations/20261014100000_popotte_init.sql` (après les migrations de Pas ce soir).
+1. **SQL Editor** → exécuter, dans l'ordre, les fichiers de `supabase/migrations/` (après les migrations de Pas ce soir).
 2. **Authentication → URL Configuration → Redirect URLs** : ajouter `https://popotte-et-placard.vercel.app/**` (et `http://localhost:3000/**` s'il n'y est pas déjà), pour les liens de confirmation d'email et de mot de passe oublié.
 
 Les administrateurs sont ceux de `public.app_admins` (communs aux deux apps).

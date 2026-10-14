@@ -203,14 +203,14 @@ export function useHouseholdActions() {
 
   // --- Préférences et recettes ---
 
-  async function addPreference(owner: TasteOwner, label: string, level: PreferenceLevel) {
-    const pref: Preference = { ...base(), ...ownerFields(owner), label: label.trim(), level }
+  async function addPreference(owner: TasteOwner, label: string, level: PreferenceLevel, barcode: string | null = null) {
+    const pref: Preference = { ...base(), ...ownerFields(owner), label: label.trim(), barcode, level }
     await db.preferences.add(pref)
     schedule()
     return pref
   }
 
-  const updatePreference = (id: string, changes: Partial<Pick<Preference, 'label' | 'level' | 'deleted_at'>>) =>
+  const updatePreference = (id: string, changes: Partial<Pick<Preference, 'label' | 'barcode' | 'level' | 'deleted_at'>>) =>
     patch(db.preferences, id, changes)
 
   async function saveRecipe(owner: TasteOwner, data: { id?: string, name: string, ingredients: Ingredient[], instructions: string }) {

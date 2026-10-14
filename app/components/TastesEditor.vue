@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Preference, PreferenceLevel, Recipe } from '~/utils/db'
 import type { TasteOwner } from '~/composables/useHousehold'
+import type { CatalogItem } from '~/composables/useCatalog'
 
 /**
  * Préférences d'aliments et recettes préférées.
@@ -16,10 +17,12 @@ const props = defineProps<{
   editableAccount?: boolean
   /** nom du compte d'origine (affichage) */
   accountLabel?: string
-  suggestions?: string[]
+  /** aliments connus (produits du foyer, en stock ou non) proposés à la saisie */
+  catalog?: CatalogItem[]
 }>()
 
 const { addPreference, updatePreference } = useHouseholdActions()
+const { lookup } = useBarcodeLookup()
 const toast = useToast()
 
 const canEdit = (row: { fromAccount?: boolean }) => !row.fromAccount || props.editableAccount
@@ -27,6 +30,47 @@ const canEdit = (row: { fromAccount?: boolean }) => !row.fromAccount || props.ed
 // --- Préférences ---
 const newLabel = ref('')
 const newLevel = ref<PreferenceLevel>('love')
+/** code-barres de l'aliment saisi (scan ou proposition) */
+const newBarcode = ref<string | null>(null)
+
+const recipeSuggestions = computed(() => (props.catalog ?? []).map(c => c.name))
+
+/** Aliment déjà présent dans les préférences affichées */
+function alreadyListed(name: string, barcode: string | null) {
+  return props.preferences.some(p => (barcode && p.barcode === barcode) || p.label.toLowerCase() === name.trim().toLowerCase())
+}
+
+/** Propositions : aliments du stock tant que rien n'est saisi, puis le catalogue filtré */
+const proposals = computed(() => {
+  const q = newLabel.value.trim()
+  const list = (props.catalog ?? []).filter(c => !alreadyListed(c.name, c.barcode))
+  if (!q) return list.filter(c => c.inStock).slice(0, 8)
+  return list.filter(c => matches(q, c.name) || c.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
+})
+
+function pick(c: CatalogItem) {
+  newLabel.value = c.name
+  newBarcode.value = c.barcode
+}
+
+// --- Scan ---
+const scanOpen = ref(false)
+const lookingUp = ref(false)
+
+async function onScan(code: string) {
+  scanOpen.value = false
+  newBarcode.value = code
+  lookingUp.value = true
+  try {
+    const found = await lookup(code)
+    if (found) newLabel.value = found.name
+    else toast.add({ title: 'Produit inconnu', description: 'Le code-barres est conservé : saisissez le nom de l\'aliment.', color: 'warning' })
+  } catch (e) {
+    toast.add({ title: 'Recherche impossible', description: `${errorMessage(e)}. Le code-barres est conservé : saisissez le nom.`, color: 'warning' })
+  } finally {
+    lookingUp.value = false
+  }
+}
 
 const grouped = computed(() => PREFERENCE_LEVELS.map(level => ({
   level,
@@ -36,10 +80,12 @@ const grouped = computed(() => PREFERENCE_LEVELS.map(level => ({
 async function add() {
   const label = newLabel.value.trim()
   if (!label) return
-  const duplicate = props.preferences.find(p => p.label.toLowerCase() === label.toLowerCase() && canEdit(p))
-  if (duplicate) await updatePreference(duplicate.id, { level: newLevel.value })
-  else await addPreference(props.owner, label, newLevel.value)
+  const barcode = newBarcode.value
+  const duplicate = props.preferences.find(p => canEdit(p) && ((barcode && p.barcode === barcode) || p.label.toLowerCase() === label.toLowerCase()))
+  if (duplicate) await updatePreference(duplicate.id, { level: newLevel.value, ...(barcode && !duplicate.barcode ? { barcode } : {}) })
+  else await addPreference(props.owner, label, newLevel.value, barcode)
   newLabel.value = ''
+  newBarcode.value = null
 }
 
 async function remove(p: Preference) {
@@ -98,6 +144,7 @@ function openRecipe(r: Recipe | null) {
                 @click="cycle(p)"
               >
                 {{ p.label }}
+                <UIcon v-if="p.barcode" name="i-lucide-barcode" class="size-3 text-muted ml-0.5" :title="`Code-barres ${p.barcode}`" />
                 <UIcon v-if="p.fromAccount && !editableAccount" name="i-lucide-link" class="size-3 text-muted ml-0.5" />
               </button>
               <button v-if="canEdit(p)" type="button" class="pr-2 pl-0.5 py-1 text-muted hover:text-error" aria-label="Retirer" @click="remove(p)">
@@ -126,14 +173,36 @@ function openRecipe(r: Recipe | null) {
             </UButton>
           </div>
           <div class="flex gap-2">
-            <UInput v-model="newLabel" placeholder="Un aliment (ex. brocoli)" class="flex-1" list="taste-suggestions" />
+            <UInput v-model="newLabel" placeholder="Un aliment, en stock ou non" class="flex-1 min-w-0" :loading="lookingUp" />
+            <UButton icon="i-lucide-scan-barcode" color="neutral" variant="soft" aria-label="Scanner un code-barres" @click="scanOpen = true" />
             <UButton type="submit" icon="i-lucide-plus" :disabled="!newLabel.trim()">
               Ajouter
             </UButton>
           </div>
-          <datalist id="taste-suggestions">
-            <option v-for="s in suggestions ?? []" :key="s" :value="s" />
-          </datalist>
+          <div v-if="newBarcode" class="flex items-center gap-1 text-xs text-muted">
+            <UIcon name="i-lucide-barcode" class="size-3.5" /> Code-barres {{ newBarcode }}
+            <button type="button" class="p-0.5 hover:text-error" aria-label="Retirer le code-barres" @click="newBarcode = null">
+              <UIcon name="i-lucide-x" class="size-3" />
+            </button>
+          </div>
+          <div v-if="proposals.length" class="space-y-1">
+            <p class="text-xs text-muted">
+              {{ newLabel.trim() ? 'Aliments connus :' : 'En stock :' }}
+            </p>
+            <div class="flex flex-wrap gap-1.5">
+              <UButton
+                v-for="c in proposals"
+                :key="c.barcode ?? c.name"
+                size="xs"
+                color="neutral"
+                :variant="c.name === newLabel && c.barcode === newBarcode ? 'solid' : 'outline'"
+                :icon="c.inStock ? 'i-lucide-refrigerator' : undefined"
+                @click="pick(c)"
+              >
+                {{ c.name }}
+              </UButton>
+            </div>
+          </div>
         </form>
       </div>
     </UCard>
@@ -175,6 +244,12 @@ function openRecipe(r: Recipe | null) {
       </ul>
     </UCard>
 
-    <RecipeModal v-model:open="recipeOpen" :owner="owner" :recipe="editing" :suggestions="suggestions" />
+    <RecipeModal v-model:open="recipeOpen" :owner="owner" :recipe="editing" :suggestions="recipeSuggestions" />
+
+    <UModal v-model:open="scanOpen" title="Scanner un aliment" description="Il sera reconnu par son code-barres dans le stock et les idées.">
+      <template #body>
+        <BarcodeScanner v-if="scanOpen" @detected="onScan" @cancel="scanOpen = false" />
+      </template>
+    </UModal>
   </div>
 </template>

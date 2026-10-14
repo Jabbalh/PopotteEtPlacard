@@ -110,6 +110,8 @@ interface Owned {
 export interface Preference extends SyncFields, Timestamps, Owned {
   id: string
   label: string
+  /** code-barres du produit (saisie par scan) : correspondance exacte avec le stock */
+  barcode?: string | null
   level: PreferenceLevel
 }
 

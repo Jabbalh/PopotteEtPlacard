@@ -47,12 +47,16 @@ export function useSuggestions(householdId: Ref<string>) {
   const { lots } = useStock(householdId)
   const { tastes } = useHouseholdTastes(householdId)
 
-  /** Avis des personnes du foyer sur un libellé (ingrédient ou produit) */
-  function opinionsOn(name: string): PersonOpinion[] {
+  /**
+   * Avis des personnes du foyer sur un aliment : même code-barres (correspondance exacte),
+   * sinon libellé ressemblant. `barcodes` : codes-barres des produits concernés.
+   */
+  function opinionsOn(name: string, barcodes: (string | null)[] = []): PersonOpinion[] {
+    const codes = new Set(barcodes.filter(Boolean))
     const result: PersonOpinion[] = []
     for (const t of tastes.value) {
       for (const p of t.preferences) {
-        if (matches(p.label, name) || matches(name, p.label)) result.push({ person: t.person, level: p.level, label: p.label })
+        if ((p.barcode && codes.has(p.barcode)) || matches(p.label, name)) result.push({ person: t.person, level: p.level, label: p.label })
       }
     }
     return result
@@ -80,7 +84,10 @@ export function useSuggestions(householdId: Ref<string>) {
           .map(x => x.l)
         if (found.length) matchList.push({ ingredient, lots: found })
         else missing.push(ingredient)
-        conflicts.push(...opinionsOn(ingredient.name).filter(o => o.level === 'dislike' || o.level === 'allergy'))
+        const opinions = opinionsOn(ingredient.name, found.map(l => l.product.barcode))
+        for (const o of opinions) {
+          if ((o.level === 'dislike' || o.level === 'allergy') && !conflicts.some(c => c.person.id === o.person.id && c.label === o.label)) conflicts.push(o)
+        }
       }
       const urgency = matchList.reduce((sum, m) => sum + urgencyOf(m.lots[0]!.item.expires_on), 0)
       return {
@@ -114,7 +121,7 @@ export function useSuggestions(householdId: Ref<string>) {
   /** Aliments à consommer en priorité (date de péremption croissante) */
   const foods = computed(() => lots.value
     .filter(l => l.item.expires_on)
-    .map(l => ({ lot: l, opinions: opinionsOn(l.product.name) })))
+    .map(l => ({ lot: l, opinions: opinionsOn(l.product.name, [l.product.barcode]) })))
 
   return { byStock, byExpiry, foods, opinionsOn }
 }

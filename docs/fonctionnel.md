@@ -63,7 +63,17 @@ Chaque préférence est un libellé libre (ex. « brocoli ») avec un niveau :
 | Allergie / interdit | Signalé en rouge ; la recette est classée en dernier |
 
 - Toucher une préférence fait défiler son niveau ; la croix la retire (annulable).
-- Ajouter un libellé déjà présent change son niveau au lieu de créer un doublon.
+- Ajouter un libellé (ou un code-barres) déjà présent change son niveau au lieu de créer un doublon.
+
+### Saisie d'un aliment
+
+L'aliment peut être **en stock ou non** :
+
+- **saisie libre** : n'importe quel libellé, même pour un aliment jamais acheté ;
+- **propositions** : tant que rien n'est saisi, les aliments en stock (icône frigo) ; en tapant, les produits connus du foyer qui ressemblent à la saisie, en stock ou non (dans *Mes goûts*, ceux de tous les foyers de l'utilisateur) ;
+- **scan du code-barres** (ou saisie du code) : le nom est repris d'un produit déjà connu, sinon d'Open Food Facts (réseau requis). Produit introuvable : le code-barres est conservé et l'utilisateur saisit le nom.
+
+Une préférence avec code-barres (icône code-barres) correspond **exactement** au produit de même code-barres, même si les noms diffèrent (« Nutella » ↔ « Pâte à tartiner noisettes cacao »). Sans code-barres, elle est rapprochée par le nom (voir § 10).
 
 ### Recettes préférées
 
@@ -221,6 +231,9 @@ Un lot dont le restant atteint 0 disparaît du stock mais reste dans l'historiqu
 Écran *Idées*, trois onglets. Les recettes proposées sont **les recettes préférées de toutes les personnes du foyer** (goûts du compte + compléments du foyer).
 
 ### Rapprochement aliment ↔ produit
+
+Une préférence enregistrée avec un code-barres correspond d'abord au produit de même code-barres. Sinon, le rapprochement se fait par le nom, comme pour les aliments des recettes.
+
 
 Un aliment de recette correspond à un produit en stock si ses mots significatifs se retrouvent dans le nom du produit (ou l'inverse), sans tenir compte des accents, des majuscules, du pluriel et des mots vides (« de », « bio », « frais »…). Exemples :
 

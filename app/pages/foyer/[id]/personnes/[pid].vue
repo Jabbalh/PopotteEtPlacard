@@ -11,13 +11,12 @@ const personId = computed(() => route.params.pid as string)
 
 const { household, people, isOwner, accountName } = useHousehold(householdId)
 const { tastes } = useHouseholdTastes(householdId)
-const { products } = useStock(householdId)
+const { catalog } = useFoodCatalog(householdId)
 const { updatePerson } = useHouseholdActions()
 
 const person = computed(() => people.value.find(p => p.id === personId.value))
 const personTastes = computed(() => tastes.value.find(t => t.person.id === personId.value))
 const isMe = computed(() => !!person.value?.user_id && person.value.user_id === user.value?.id)
-const suggestions = computed(() => [...new Set(products.value.map(p => p.name))])
 const owner = computed(() => ({ personId: personId.value, householdId: householdId.value }))
 
 function goBack() {
@@ -223,7 +222,7 @@ function askDelete() {
       :owner="owner"
       :editable-account="isMe"
       :account-label="accountName(person.user_id) ?? undefined"
-      :suggestions="suggestions"
+      :catalog="catalog"
     />
     <p v-if="person.user_id && !isMe" class="text-xs text-muted -mt-2">
       <UIcon name="i-lucide-link" class="size-3" /> = issu du compte (modifiable par son titulaire seulement). Ce que vous ajoutez ici complète ses goûts pour ce foyer uniquement.

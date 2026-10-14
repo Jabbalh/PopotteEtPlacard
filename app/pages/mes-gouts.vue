@@ -1,5 +1,7 @@
 <script setup lang="ts">
 const { preferences, recipes, owner } = useMyTastes()
+// aliments de tous mes foyers
+const { catalog } = useFoodCatalog()
 </script>
 
 <template>
@@ -12,6 +14,6 @@ const { preferences, recipes, owner } = useMyTastes()
         Liés à votre compte : ils sont repris automatiquement dans chaque foyer dont vous faites partie. Chaque foyer peut ensuite les compléter.
       </p>
     </div>
-    <TastesEditor :preferences="preferences" :recipes="recipes" :owner="owner" editable-account />
+    <TastesEditor :preferences="preferences" :recipes="recipes" :owner="owner" :catalog="catalog" editable-account />
   </div>
 </template>
