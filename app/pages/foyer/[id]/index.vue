@@ -200,7 +200,7 @@ function take(row: Row) {
             </UBadge>
           </div>
         </NuxtLink>
-        <UButton icon="i-lucide-pencil" color="neutral" variant="soft" aria-label="Modifier le stock" @click="take(row)" />
+        <UButton icon="i-lucide-minus" color="neutral" variant="soft" aria-label="Retirer du stock" @click="take(row)" />
       </li>
     </ul>
 

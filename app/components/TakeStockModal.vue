@@ -76,7 +76,7 @@ async function save() {
 <template>
   <UModal
     v-model:open="open"
-    :title="title ?? 'Modifier le stock'"
+    :title="title ?? 'Retirer du stock'"
     :description="title ? undefined : single ? lines[0]?.lot.product.name : undefined"
     :ui="{ content: 'max-h-[92dvh]', body: 'overflow-y-auto' }">
     <template #body>
