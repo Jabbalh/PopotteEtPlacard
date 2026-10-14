@@ -151,7 +151,8 @@ Règles :
 - Une ligne par produit, regroupant ses lots :
   - photo ou icône, nom, Nutri-Score, étoiles si favori ;
   - quantité totale, nombre de lots, type d'aliment, rangement(s) ;
-  - badge de péremption du lot le plus urgent.
+  - badge de péremption du lot le plus urgent ;
+  - préférences des personnes du foyer : un badge par personne (prénom, couleur et icône du niveau), avec sa préférence la plus forte, allergies et aversions d'abord, 3 au maximum puis « +N » ; le survol affiche la préférence saisie. Le détail complet est sur la fiche produit.
 - Bouton **−** : sortie de stock (le lot le plus urgent est présélectionné).
 - Boutons **Ajouter** (ouvre le scanner) et ✏️ (saisie libre).
 
@@ -171,6 +172,7 @@ Règles :
 
 - Informations : photo, marque, Nutri-Score, type, code-barres, description, composition.
 - **Note de favori** (0 à 5 étoiles), enregistrée immédiatement.
+- **Préférences du foyer** : les personnes qui ont une préférence sur cet aliment, avec la préférence telle qu'elle l'a saisie (ex. « Nutella »), son niveau, et son origine (goût du compte ou propre au foyer). Allergies et aversions d'abord. Rapprochement par code-barres (icône), sinon par le nom. Toucher une ligne ouvre la fiche de la personne.
 - **Lots en stock** : quantité restante (et initiale), rangement, date d'achat, péremption ; actions *Retirer* et *Modifier / corriger*.
 - **Alerte rupture** pour un favori dont le stock est sous le seuil.
 - **Historique** des sorties (type, quantité, recette, date, auteur, note), chaque sortie pouvant être annulée.

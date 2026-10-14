@@ -14,6 +14,12 @@ const { productById, allLots, movementsOf, loading } = useStock(householdId)
 const { updateProduct, updateStockItem, addMovements, cancelMovements } = useHouseholdActions()
 
 const product = computed(() => productById.value.get(productId.value))
+
+// --- Préférences des personnes du foyer sur cet aliment (code-barres, sinon nom) ---
+const { opinionsOn } = useOpinions(householdId)
+const LEVEL_ORDER = ['allergy', 'dislike', 'love', 'like']
+const opinions = computed(() => (product.value ? opinionsOn(product.value.name, [product.value.barcode]) : [])
+  .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level) || a.person.name.localeCompare(b.person.name)))
 const productLots = computed(() => allLots.value.filter(l => l.product.id === productId.value))
 const activeLots = computed(() => productLots.value
   .filter(l => l.remaining > 0)
@@ -154,7 +160,7 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
     </div>
 
     <div class="space-y-5 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-8 lg:items-start">
-      <div class="lg:sticky lg:top-20">
+      <div class="space-y-5 lg:sticky lg:top-20">
         <UCard>
           <div class="flex gap-4">
             <img v-if="product.image_url" :src="product.image_url" alt="" class="size-24 rounded-lg object-contain bg-white shrink-0">
@@ -190,6 +196,37 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
               {{ product.ingredients }}
             </p>
           </details>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h2 class="font-semibold flex items-center gap-2">
+              <UIcon name="i-lucide-users" class="size-4 text-primary" /> Préférences du foyer
+            </h2>
+          </template>
+          <p v-if="!opinions.length" class="text-sm text-muted">
+            Personne n'a de préférence enregistrée sur cet aliment.
+          </p>
+          <ul v-else class="divide-y divide-default -my-2">
+            <li v-for="(o, i) in opinions" :key="`${o.person.id}-${i}`">
+              <NuxtLink :to="`/foyer/${householdId}/personnes/${o.person.id}`" class="flex items-center gap-3 py-2">
+                <UAvatar :alt="o.person.name" size="sm" />
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium truncate">
+                    {{ o.person.name }}
+                  </p>
+                  <p class="text-xs text-muted truncate">
+                    « {{ o.label }} »
+                    <UIcon v-if="o.byBarcode" name="i-lucide-barcode" class="size-3" :title="'Même code-barres'" />
+                    · {{ o.fromAccount ? 'goût du compte' : 'propre au foyer' }}
+                  </p>
+                </div>
+                <UBadge :color="preferenceLevel(o.level).color" :icon="preferenceLevel(o.level).icon" variant="subtle" size="sm" class="shrink-0">
+                  {{ preferenceLevel(o.level).label }}
+                </UBadge>
+              </NuxtLink>
+            </li>
+          </ul>
         </UCard>
       </div>
       <div class="space-y-5">

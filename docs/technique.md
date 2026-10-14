@@ -196,7 +196,7 @@ Pour chaque personne non supprimée du foyer : goûts de son compte (`user_id = 
 - Recettes = union des recettes des personnes, dédoublonnées par id (`favoredBy` = personnes qui l'ont).
 - Pour chaque aliment : lots correspondants triés par score puis péremption.
 - `coverage = aliments trouvés / aliments`, `urgency = Σ urgencyOf(lot le plus pertinent)`, `conflicts` = préférences *dislike* / *allergy* d'une personne correspondant à un aliment.
-- Avis d'une personne sur un aliment (`opinionsOn(nom, codesBarres)`) : préférence de même code-barres que le produit, sinon `matches(libellé, nom)`. Pour un ingrédient de recette, les codes-barres sont ceux des produits trouvés en stock.
+- Avis d'une personne sur un aliment : `useOpinions(householdId).opinionsOn(nom, codesBarres)` — préférence de même code-barres que le produit (`byBarcode`), sinon `matches(libellé, nom)` ; `fromAccount` indique un goût de compte. Utilisé par les idées (pour un ingrédient de recette, les codes-barres sont ceux des produits trouvés en stock), la fiche produit et la liste du stock (une préférence par personne, la plus forte).
 
 ### Catalogue et code-barres (`useCatalog`)
 

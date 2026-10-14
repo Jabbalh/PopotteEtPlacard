@@ -10,7 +10,12 @@ export interface IngredientMatch {
 export interface PersonOpinion {
   person: Person
   level: PreferenceLevel
+  /** préférence telle que la personne l'a saisie */
   label: string
+  /** trouvée par le code-barres (sinon par le nom) */
+  byBarcode: boolean
+  /** préférence du compte de la personne (sinon propre au foyer) */
+  fromAccount: boolean
 }
 
 export interface RecipeSuggestion {
@@ -40,11 +45,9 @@ export function urgencyOf(expiresOn: string | null): number {
 }
 
 /**
- * Idées de recettes et d'aliments pour le foyer, à partir du stock,
- * des recettes favorites et des préférences de chaque personne.
+ * Avis des personnes du foyer sur les aliments (préférences de compte et propres au foyer).
  */
-export function useSuggestions(householdId: Ref<string>) {
-  const { lots } = useStock(householdId)
+export function useOpinions(householdId: Ref<string>) {
   const { tastes } = useHouseholdTastes(householdId)
 
   /**
@@ -56,11 +59,24 @@ export function useSuggestions(householdId: Ref<string>) {
     const result: PersonOpinion[] = []
     for (const t of tastes.value) {
       for (const p of t.preferences) {
-        if ((p.barcode && codes.has(p.barcode)) || matches(p.label, name)) result.push({ person: t.person, level: p.level, label: p.label })
+        const byBarcode = !!p.barcode && codes.has(p.barcode)
+        if (byBarcode || matches(p.label, name)) result.push({ person: t.person, level: p.level, label: p.label, byBarcode, fromAccount: p.fromAccount })
       }
     }
     return result
   }
+
+  return { opinionsOn }
+}
+
+/**
+ * Idées de recettes et d'aliments pour le foyer, à partir du stock,
+ * des recettes favorites et des préférences de chaque personne.
+ */
+export function useSuggestions(householdId: Ref<string>) {
+  const { lots } = useStock(householdId)
+  const { tastes } = useHouseholdTastes(householdId)
+  const { opinionsOn } = useOpinions(householdId)
 
   const recipes = computed<RecipeSuggestion[]>(() => {
     const byId = new Map<string, { recipe: Recipe, favoredBy: Person[] }>()

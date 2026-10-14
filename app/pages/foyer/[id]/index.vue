@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Lot, TakeLine } from '~/composables/useStock'
+import type { PersonOpinion } from '~/composables/useSuggestions'
 import type { Product } from '~/utils/db'
 
 const route = useRoute()
@@ -8,6 +9,24 @@ const householdId = computed(() => route.params.id as string)
 const { household, loading } = useHousehold(householdId)
 const { locations, locationById, foodTypeById } = useHouseholdOptions(householdId)
 const { lots, loading: stockLoading } = useStock(householdId)
+const { opinionsOn } = useOpinions(householdId)
+
+/** Préférences du foyer sur un produit : une par personne (la plus forte), allergies d'abord */
+const LEVEL_ORDER = ['allergy', 'dislike', 'love', 'like']
+const opinionsByProduct = computed(() => {
+  const map = new Map<string, PersonOpinion[]>()
+  for (const l of lots.value) {
+    if (map.has(l.product.id)) continue
+    const byPerson = new Map<string, PersonOpinion>()
+    for (const o of opinionsOn(l.product.name, [l.product.barcode])) {
+      const current = byPerson.get(o.person.id)
+      if (!current || LEVEL_ORDER.indexOf(o.level) < LEVEL_ORDER.indexOf(current.level)) byPerson.set(o.person.id, o)
+    }
+    map.set(l.product.id, [...byPerson.values()].sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level) || a.person.name.localeCompare(b.person.name)))
+  }
+  return map
+})
+const opinionsOf = (p: Product) => opinionsByProduct.value.get(p.id) ?? []
 
 onMounted(() => {
   try {
@@ -198,15 +217,31 @@ function take(row: Row) {
                 <span v-for="l in locationsOf(row)" :key="l!.id"> · {{ l!.label }}</span>
               </template>
             </p>
-            <UBadge
-              v-if="row.nextExpiry"
-              :color="expiryInfo(row.nextExpiry).color"
-              variant="subtle"
-              size="sm"
-              class="mt-1"
-            >
-              {{ expiryInfo(row.nextExpiry).label }}
-            </UBadge>
+            <div v-if="row.nextExpiry || opinionsOf(row.product).length" class="flex flex-wrap items-center gap-1 mt-1">
+              <UBadge
+                v-if="row.nextExpiry"
+                :color="expiryInfo(row.nextExpiry).color"
+                variant="subtle"
+                size="sm"
+              >
+                {{ expiryInfo(row.nextExpiry).label }}
+              </UBadge>
+              <!-- préférences des personnes du foyer (une par personne, la plus forte) -->
+              <UBadge
+                v-for="o in opinionsOf(row.product).slice(0, 3)"
+                :key="o.person.id"
+                :color="preferenceLevel(o.level).color"
+                :icon="preferenceLevel(o.level).icon"
+                variant="outline"
+                size="sm"
+                :title="`${o.person.name} : ${preferenceLevel(o.level).label.toLowerCase()} « ${o.label} »`"
+              >
+                {{ o.person.name }}
+              </UBadge>
+              <span v-if="opinionsOf(row.product).length > 3" class="text-xs text-muted">
+                +{{ opinionsOf(row.product).length - 3 }}
+              </span>
+            </div>
           </div>
         </NuxtLink>
         <UButton icon="i-lucide-minus" color="neutral" variant="soft" aria-label="Retirer du stock" @click="take(row)" />
