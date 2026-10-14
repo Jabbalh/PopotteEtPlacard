@@ -74,9 +74,11 @@ async function save() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="title ?? 'Modifier le stock'"
+  <UModal
+    v-model:open="open"
+    :title="title ?? 'Modifier le stock'"
     :description="title ? undefined : single ? lines[0]?.lot.product.name : undefined"
-:ui="{ content: 'max-h-[92dvh]', body: 'overflow-y-auto' }">
+    :ui="{ content: 'max-h-[92dvh]', body: 'overflow-y-auto' }">
     <template #body>
       <form id="take-stock" class="space-y-5" @submit.prevent="save">
         <UFormField label="Raison">
