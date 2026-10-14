@@ -100,82 +100,86 @@ function askLeave() {
       Réglages
     </h1>
 
-    <UCard>
-      <template #header>
-        <h2 class="font-semibold">
-          Foyer
-        </h2>
-      </template>
-      <form class="flex gap-2" @submit.prevent="saveName">
-        <UInput v-model="name" class="flex-1" required />
-        <UButton type="submit">
-          Enregistrer
-        </UButton>
-      </form>
-    </UCard>
+    <div class="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start">
+      <div class="contents lg:flex lg:flex-col lg:gap-5">
+        <UCard class="order-1">
+          <template #header>
+            <h2 class="font-semibold">
+              Foyer
+            </h2>
+          </template>
+          <form class="flex gap-2" @submit.prevent="saveName">
+            <UInput v-model="name" class="flex-1" required />
+            <UButton type="submit">
+              Enregistrer
+            </UButton>
+          </form>
+        </UCard>
 
-    <UCard>
-      <template #header>
-        <h2 class="font-semibold">
-          Rangements et types d'aliments
-        </h2>
-        <p class="text-sm text-muted">
-          Les choix proposés à l'ajout d'un produit. Touchez un libellé pour le renommer, l'icône pour la changer.
-        </p>
-      </template>
-      <UTabs
-        v-model="tab"
-        :content="false"
-        :items="[{ label: `Rangements (${locations.length})`, value: 'locations' }, { label: `Types (${foodTypes.length})`, value: 'foodTypes' }]"
-        class="mb-3"
-      />
-      <OptionsEditor
-        v-if="tab === 'locations'"
-        :household-id="householdId"
-        table="locations"
-        :options="locations"
-        :archived="allLocations.filter(o => o.deleted_at)"
-        :usage="locationUsage"
-        placeholder="Nouveau rangement (ex. Cave, Placard)…"
-      />
-      <OptionsEditor
-        v-else
-        :household-id="householdId"
-        table="foodTypes"
-        :options="foodTypes"
-        :archived="allFoodTypes.filter(o => o.deleted_at)"
-        :usage="typeUsage"
-        placeholder="Nouveau type d'aliment…"
-      />
-    </UCard>
+        <UCard class="order-3">
+          <template #header>
+            <h2 class="font-semibold">
+              Membres et invitations
+            </h2>
+          </template>
+          <p class="text-sm text-muted mb-3">
+            Pour donner accès au foyer, ajoutez la personne puis envoyez-lui un lien d'invitation depuis sa fiche.
+          </p>
+          <UButton block color="neutral" variant="soft" icon="i-lucide-users" :to="`/foyer/${householdId}/personnes`">
+            Personnes du foyer
+          </UButton>
+        </UCard>
 
-    <UCard>
-      <template #header>
-        <h2 class="font-semibold">
-          Membres et invitations
-        </h2>
-      </template>
-      <p class="text-sm text-muted mb-3">
-        Pour donner accès au foyer, ajoutez la personne puis envoyez-lui un lien d'invitation depuis sa fiche.
-      </p>
-      <UButton block color="neutral" variant="soft" icon="i-lucide-users" :to="`/foyer/${householdId}/personnes`">
-        Personnes du foyer
-      </UButton>
-    </UCard>
+        <UCard class="order-4" :ui="{ root: 'ring-error/40' }">
+          <template #header>
+            <h2 class="font-semibold text-error">
+              Zone sensible
+            </h2>
+          </template>
+          <UButton v-if="isOwner" block color="error" variant="soft" icon="i-lucide-trash-2" @click="askDelete">
+            Supprimer le foyer
+          </UButton>
+          <UButton v-else-if="me" block color="error" variant="soft" icon="i-lucide-log-out" :disabled="!online" @click="askLeave">
+            Quitter le foyer
+          </UButton>
+        </UCard>
+      </div>
 
-    <UCard :ui="{ root: 'ring-error/40' }">
-      <template #header>
-        <h2 class="font-semibold text-error">
-          Zone sensible
-        </h2>
-      </template>
-      <UButton v-if="isOwner" block color="error" variant="soft" icon="i-lucide-trash-2" @click="askDelete">
-        Supprimer le foyer
-      </UButton>
-      <UButton v-else-if="me" block color="error" variant="soft" icon="i-lucide-log-out" :disabled="!online" @click="askLeave">
-        Quitter le foyer
-      </UButton>
-    </UCard>
+      <UCard class="order-2">
+        <template #header>
+          <h2 class="font-semibold">
+            Rangements et types d'aliments
+          </h2>
+          <p class="text-sm text-muted">
+            Les choix proposés à l'ajout d'un produit. Touchez un libellé pour le renommer, l'icône pour la changer.
+          </p>
+        </template>
+        <UTabs
+          v-model="tab"
+          :content="false"
+          :items="[{ label: `Rangements (${locations.length})`, value: 'locations' }, { label: `Types (${foodTypes.length})`, value: 'foodTypes' }]"
+          class="mb-3"
+        />
+        <OptionsEditor
+          v-if="tab === 'locations'"
+          :household-id="householdId"
+          table="locations"
+          :options="locations"
+          :archived="allLocations.filter(o => o.deleted_at)"
+          :usage="locationUsage"
+          placeholder="Nouveau rangement (ex. Cave, Placard)…"
+        />
+        <OptionsEditor
+          v-else
+          :household-id="householdId"
+          table="foodTypes"
+          :options="foodTypes"
+          :archived="allFoodTypes.filter(o => o.deleted_at)"
+          :usage="typeUsage"
+          placeholder="Nouveau type d'aliment…"
+        />
+      </UCard>
+    </div>
 
     <UModal v-model:open="confirmOpen" :title="confirmAction?.title" :description="confirmAction?.description">
       <template #footer>

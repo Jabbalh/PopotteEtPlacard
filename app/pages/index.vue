@@ -74,7 +74,7 @@ async function create() {
       </UButton>
     </div>
 
-    <div v-if="loading" class="space-y-3">
+    <div v-if="loading" class="grid grid-cols-1 gap-3 md:grid-cols-2">
       <USkeleton v-for="i in 2" :key="i" class="h-20 w-full" />
     </div>
 
@@ -86,7 +86,7 @@ async function create() {
       :actions="[{ label: 'Créer un foyer', icon: 'i-lucide-plus', size: 'lg', onClick: () => { open = true } }]"
     />
 
-    <div v-else class="space-y-3">
+    <div v-else class="grid grid-cols-1 gap-3 md:grid-cols-2">
       <NuxtLink
         v-for="h in households"
         :key="h.id"

@@ -75,66 +75,68 @@ function names(people: { name: string }[]) {
         title="Aucune recette à proposer"
         :description="tab === 'stock'
           ? 'Ajoutez des recettes préférées (avec leurs ingrédients) aux personnes du foyer, et des aliments au stock.'
-          : 'Aucune recette n\'utilise d\'aliment qui périme dans les 15 prochains jours.'"
+          : 'Aucune recette n\'utilise d\'aliment qui périme dans les 14 prochains jours.'"
         :actions="[{ label: 'Personnes du foyer', icon: 'i-lucide-users', to: `/foyer/${householdId}/personnes` }]"
       />
 
-      <div v-for="s in recipes" :key="s.recipe.id" class="rounded-xl border border-default bg-elevated/40">
-        <button type="button" class="w-full text-left p-3 space-y-1.5" @click="expanded = expanded === s.recipe.id ? null : s.recipe.id">
-          <div class="flex items-center gap-2">
-            <p class="font-semibold flex-1 min-w-0 truncate">
-              {{ s.recipe.name }}
+      <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 items-start">
+        <div v-for="s in recipes" :key="s.recipe.id" class="rounded-xl border border-default bg-elevated/40">
+          <button type="button" class="w-full text-left p-3 space-y-1.5" @click="expanded = expanded === s.recipe.id ? null : s.recipe.id">
+            <div class="flex items-center gap-2">
+              <p class="font-semibold flex-1 min-w-0 truncate">
+                {{ s.recipe.name }}
+              </p>
+              <UBadge :color="s.coverage === 1 ? 'success' : s.coverage >= 0.5 ? 'primary' : 'neutral'" variant="subtle" size="sm">
+                {{ s.matches.length }}/{{ s.recipe.ingredients.length }} ingrédients
+              </UBadge>
+            </div>
+            <UProgress :model-value="Math.round(s.coverage * 100)" size="xs" :color="s.coverage === 1 ? 'success' : 'primary'" />
+            <p class="text-xs text-muted flex items-center gap-1">
+              <UIcon name="i-lucide-heart" class="size-3 text-pink-500" /> {{ names(s.favoredBy) }}
             </p>
-            <UBadge :color="s.coverage === 1 ? 'success' : s.coverage >= 0.5 ? 'primary' : 'neutral'" variant="subtle" size="sm">
-              {{ s.matches.length }}/{{ s.recipe.ingredients.length }} ingrédients
-            </UBadge>
-          </div>
-          <UProgress :model-value="Math.round(s.coverage * 100)" size="xs" :color="s.coverage === 1 ? 'success' : 'primary'" />
-          <p class="text-xs text-muted flex items-center gap-1">
-            <UIcon name="i-lucide-heart" class="size-3 text-pink-500" /> {{ names(s.favoredBy) }}
-          </p>
-          <p v-if="tab === 'expiry'" class="text-xs flex flex-wrap gap-1">
-            <UBadge
-              v-for="m in s.matches.filter(x => x.lots[0]!.item.expires_on)"
-              :key="m.ingredient.name"
-              :color="expiryInfo(m.lots[0]!.item.expires_on).color"
-              variant="soft"
-              size="sm"
+            <p v-if="tab === 'expiry'" class="text-xs flex flex-wrap gap-1">
+              <UBadge
+                v-for="m in s.matches.filter(x => x.lots[0]!.item.expires_on)"
+                :key="m.ingredient.name"
+                :color="expiryInfo(m.lots[0]!.item.expires_on).color"
+                variant="soft"
+                size="sm"
+              >
+                {{ m.lots[0]!.product.name }} · {{ expiryInfo(m.lots[0]!.item.expires_on).label }}
+              </UBadge>
+            </p>
+            <p
+              v-for="c in s.conflicts"
+              :key="c.person.id + c.label"
+              class="text-xs flex items-center gap-1"
+              :class="c.level === 'allergy' ? 'text-error' : 'text-warning'"
             >
-              {{ m.lots[0]!.product.name }} · {{ expiryInfo(m.lots[0]!.item.expires_on).label }}
-            </UBadge>
-          </p>
-          <p
-            v-for="c in s.conflicts"
-            :key="c.person.id + c.label"
-            class="text-xs flex items-center gap-1"
-            :class="c.level === 'allergy' ? 'text-error' : 'text-warning'"
-          >
-            <UIcon :name="preferenceLevel(c.level).icon" class="size-3" />
-            {{ c.person.name }} : {{ preferenceLevel(c.level).label.toLowerCase() }} « {{ c.label }} »
-          </p>
-        </button>
+              <UIcon :name="preferenceLevel(c.level).icon" class="size-3" />
+              {{ c.person.name }} : {{ preferenceLevel(c.level).label.toLowerCase() }} « {{ c.label }} »
+            </p>
+          </button>
 
-        <div v-if="expanded === s.recipe.id" class="px-3 pb-3 space-y-3 border-t border-default pt-3">
-          <ul class="text-sm space-y-1">
-            <li v-for="m in s.matches" :key="`ok-${m.ingredient.name}`" class="flex items-start gap-2">
-              <UIcon name="i-lucide-check" class="size-4 text-success mt-0.5 shrink-0" />
-              <span>
-                {{ [m.ingredient.quantity, m.ingredient.unit, m.ingredient.name].filter(Boolean).join(' ') }}
-                <span class="text-muted">→ {{ m.lots[0]!.product.name }} ({{ formatQuantity(m.lots[0]!.remaining, m.lots[0]!.product.unit) }})</span>
-              </span>
-            </li>
-            <li v-for="i in s.missing" :key="`ko-${i.name}`" class="flex items-start gap-2 text-muted">
-              <UIcon name="i-lucide-x" class="size-4 text-error mt-0.5 shrink-0" />
-              <span>{{ [i.quantity, i.unit, i.name].filter(Boolean).join(' ') }} — à acheter</span>
-            </li>
-          </ul>
-          <p v-if="s.recipe.instructions" class="text-sm whitespace-pre-line rounded-lg bg-muted/50 p-2.5">
-            {{ s.recipe.instructions }}
-          </p>
-          <UButton block icon="i-lucide-cooking-pot" @click="cook(s)">
-            Je la cuisine : retirer les aliments
-          </UButton>
+          <div v-if="expanded === s.recipe.id" class="px-3 pb-3 space-y-3 border-t border-default pt-3">
+            <ul class="text-sm space-y-1">
+              <li v-for="m in s.matches" :key="`ok-${m.ingredient.name}`" class="flex items-start gap-2">
+                <UIcon name="i-lucide-check" class="size-4 text-success mt-0.5 shrink-0" />
+                <span>
+                  {{ [m.ingredient.quantity, m.ingredient.unit, m.ingredient.name].filter(Boolean).join(' ') }}
+                  <span class="text-muted">→ {{ m.lots[0]!.product.name }} ({{ formatQuantity(m.lots[0]!.remaining, m.lots[0]!.product.unit) }})</span>
+                </span>
+              </li>
+              <li v-for="i in s.missing" :key="`ko-${i.name}`" class="flex items-start gap-2 text-muted">
+                <UIcon name="i-lucide-x" class="size-4 text-error mt-0.5 shrink-0" />
+                <span>{{ [i.quantity, i.unit, i.name].filter(Boolean).join(' ') }} — à acheter</span>
+              </li>
+            </ul>
+            <p v-if="s.recipe.instructions" class="text-sm whitespace-pre-line rounded-lg bg-muted/50 p-2.5">
+              {{ s.recipe.instructions }}
+            </p>
+            <UButton block icon="i-lucide-cooking-pot" @click="cook(s)">
+              Je la cuisine : retirer les aliments
+            </UButton>
+          </div>
         </div>
       </div>
     </template>
@@ -150,7 +152,7 @@ function names(people: { name: string }[]) {
         title="Rien à surveiller"
         description="Aucun aliment en stock n'a de date de péremption renseignée."
       />
-      <ul v-else class="space-y-2">
+      <ul v-else class="grid grid-cols-1 gap-2 md:grid-cols-2">
         <li v-for="f in foods" :key="f.lot.item.id" class="flex items-center gap-3 p-3 rounded-xl border border-default bg-elevated/40">
           <NuxtLink :to="`/foyer/${householdId}/produit/${f.lot.product.id}`" class="flex-1 min-w-0">
             <p class="font-medium truncate">

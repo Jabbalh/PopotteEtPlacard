@@ -39,11 +39,11 @@ async function create() {
       Les goûts et recettes préférées de chacun servent aux idées de repas. Une personne peut être invitée à lier son compte : ses préférences de compte sont alors reprises automatiquement.
     </p>
 
-    <ul class="space-y-2">
+    <ul class="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
       <li v-for="p in people" :key="p.id">
         <NuxtLink
           :to="`/foyer/${householdId}/personnes/${p.id}`"
-          class="flex items-center gap-3 p-3 rounded-xl border border-default bg-elevated/40 hover:bg-elevated transition"
+          class="h-full flex items-center gap-3 p-3 rounded-xl border border-default bg-elevated/40 hover:bg-elevated transition"
         >
           <UAvatar :alt="p.name" />
           <div class="flex-1 min-w-0">

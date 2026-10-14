@@ -66,7 +66,7 @@ function openRecipe(r: Recipe | null) {
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div class="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
     <UCard>
       <template #header>
         <h2 class="font-semibold">

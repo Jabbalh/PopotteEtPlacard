@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+import type { Household } from '~/utils/db'
 
 const route = useRoute()
 const { user, isAdmin, signOut } = useAuth()
@@ -7,6 +8,13 @@ const { pendingCount } = useSync()
 const toast = useToast()
 
 const householdId = computed(() => (route.path.startsWith('/foyer/') ? route.params.id as string | undefined : undefined) ?? null)
+
+// Nom du foyer affiché dans la barre latérale (PC)
+const { data: household } = useLiveQuery(
+  () => (user.value && householdId.value ? openDb(user.value.id).households.get(householdId.value) : undefined),
+  undefined as Household | undefined,
+  [householdId, user]
+)
 
 const navItems = computed(() => {
   if (!householdId.value) return []
@@ -47,7 +55,7 @@ const userMenu = computed<DropdownMenuItem[][]>(() => [
 <template>
   <div class="min-h-dvh flex flex-col bg-default">
     <header class="sticky top-0 z-30 bg-default/85 backdrop-blur border-b border-default pt-[env(safe-area-inset-top)]">
-      <div class="max-w-2xl mx-auto h-14 px-4 flex items-center gap-2">
+      <div class="max-w-2xl md:max-w-4xl lg:max-w-7xl mx-auto h-14 px-4 lg:px-6 flex items-center gap-2">
         <NuxtLink to="/" class="flex items-center gap-2 font-bold text-lg min-w-0">
           <img src="/icon.svg" alt="" class="size-7 shrink-0">
           <span class="truncate">Popotte &amp; Placard</span>
@@ -61,15 +69,43 @@ const userMenu = computed<DropdownMenuItem[][]>(() => [
       </div>
     </header>
 
-    <main class="flex-1 w-full max-w-2xl mx-auto px-4 py-4" :class="navItems.length ? 'pb-28' : 'pb-8'">
-      <slot />
-    </main>
+    <div class="flex-1 w-full lg:max-w-7xl lg:mx-auto lg:flex">
+      <!-- PC : navigation du foyer en barre latérale -->
+      <aside
+        v-if="navItems.length"
+        class="hidden lg:flex flex-col gap-1 w-60 shrink-0 sticky top-14 self-start h-[calc(100dvh-3.5rem)] px-4 py-6 border-r border-default"
+      >
+        <NuxtLink to="/" class="flex items-center gap-1 text-xs text-muted hover:text-default mb-1">
+          <UIcon name="i-lucide-chevron-left" class="size-3.5" /> Mes foyers
+        </NuxtLink>
+        <p class="font-bold text-lg truncate mb-3">
+          {{ household?.name }}
+        </p>
+        <NuxtLink
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          :class="isActive(item) ? 'bg-primary/10 text-primary' : 'text-muted hover:bg-elevated hover:text-default'"
+        >
+          <UIcon :name="item.icon" class="size-5" />
+          {{ item.label }}
+        </NuxtLink>
+      </aside>
+
+      <main
+        class="flex-1 min-w-0 w-full max-w-2xl md:max-w-4xl lg:max-w-none mx-auto px-4 lg:px-8 py-4 lg:py-6"
+        :class="navItems.length ? 'pb-28 lg:pb-10' : 'pb-8'"
+      >
+        <slot />
+      </main>
+    </div>
 
     <nav
       v-if="navItems.length"
-      class="fixed bottom-0 inset-x-0 z-30 bg-default/90 backdrop-blur border-t border-default pb-[env(safe-area-inset-bottom)]"
+      class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-default/90 backdrop-blur border-t border-default pb-[env(safe-area-inset-bottom)]"
     >
-      <div class="max-w-2xl mx-auto grid grid-cols-5">
+      <div class="max-w-2xl md:max-w-4xl mx-auto grid grid-cols-5">
         <NuxtLink
           v-for="item in navItems"
           :key="item.to"

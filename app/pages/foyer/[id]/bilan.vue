@@ -117,94 +117,100 @@ function goTo(locationId: string | null) {
       </div>
     </div>
 
-    <!-- Favoris -->
-    <UCard>
-      <template #header>
-        <h2 class="font-semibold flex items-center gap-2">
-          <UIcon name="i-lucide-star" class="text-amber-400" /> Favoris à racheter
-        </h2>
-        <p class="text-sm text-muted">
-          Aliments favoris en rupture ou sous leur seuil d'alerte.
-        </p>
-      </template>
-      <p v-if="!favorites.length" class="text-sm text-muted">
-        Tous vos favoris sont en stock. 👌
-      </p>
-      <ul v-else class="divide-y divide-default -my-2">
-        <li v-for="f in favorites" :key="f.product.id" class="py-2.5 flex items-center gap-3">
-          <NuxtLink :to="`/foyer/${householdId}/produit/${f.product.id}`" class="flex-1 min-w-0">
-            <p class="font-medium truncate">
-              {{ f.product.name }}
+    <div class="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start">
+      <div class="contents lg:flex lg:flex-col lg:gap-5">
+        <!-- Favoris -->
+        <UCard class="order-1">
+          <template #header>
+            <h2 class="font-semibold flex items-center gap-2">
+              <UIcon name="i-lucide-star" class="text-amber-400" /> Favoris à racheter
+            </h2>
+            <p class="text-sm text-muted">
+              Aliments favoris en rupture ou sous leur seuil d'alerte.
             </p>
+          </template>
+          <p v-if="!favorites.length" class="text-sm text-muted">
+            Tous vos favoris sont en stock. 👌
+          </p>
+          <ul v-else class="divide-y divide-default -my-2">
+            <li v-for="f in favorites" :key="f.product.id" class="py-2.5 flex items-center gap-3">
+              <NuxtLink :to="`/foyer/${householdId}/produit/${f.product.id}`" class="flex-1 min-w-0">
+                <p class="font-medium truncate">
+                  {{ f.product.name }}
+                </p>
+                <div class="flex items-center gap-2">
+                  <StarRating :model-value="f.product.rating" readonly size="sm" />
+                  <UBadge :color="f.total <= 0 ? 'error' : 'warning'" variant="subtle" size="sm">
+                    {{ f.total <= 0 ? 'Rupture' : `Reste ${formatQuantity(f.total, f.product.unit)}` }}
+                  </UBadge>
+                </div>
+              </NuxtLink>
+              <UButton icon="i-lucide-plus" size="sm" color="neutral" variant="soft" aria-label="Racheter" @click="restock(f.product.id)" />
+            </li>
+          </ul>
+        </UCard>
+
+        <!-- Activité -->
+        <UCard v-if="lotsCount" class="order-3">
+          <template #header>
+            <h2 class="font-semibold">
+              30 derniers jours
+            </h2>
+          </template>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div v-for="k in MOVEMENT_KINDS" :key="k.value">
+              <UIcon :name="k.icon" class="size-5" :class="`text-${k.color}`" />
+              <p class="text-xl font-bold">
+                {{ recent[k.value] }}
+              </p>
+              <p class="text-xs text-muted">
+                {{ k.past }}(s)
+              </p>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
+      <!-- Par lieu de stockage -->
+      <section class="order-2 space-y-2">
+        <h2 class="font-semibold">
+          Par lieu de stockage
+        </h2>
+        <div class="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-1 items-start">
+          <button
+            v-for="r in reports"
+            :key="r.id ?? 'none'"
+            type="button"
+            class="w-full text-left rounded-xl border border-default bg-elevated/40 p-3 space-y-2 hover:bg-elevated transition"
+            @click="goTo(r.id)"
+          >
             <div class="flex items-center gap-2">
-              <StarRating :model-value="f.product.rating" readonly size="sm" />
-              <UBadge :color="f.total <= 0 ? 'error' : 'warning'" variant="subtle" size="sm">
-                {{ f.total <= 0 ? 'Rupture' : `Reste ${formatQuantity(f.total, f.product.unit)}` }}
+              <UIcon :name="r.icon" class="size-5 text-primary" />
+              <p class="font-semibold flex-1">
+                {{ r.label }}
+              </p>
+              <span class="text-sm text-muted">{{ r.products }} produit(s) · {{ r.lots }} lot(s)</span>
+            </div>
+            <div v-if="r.expired || r.soon" class="flex gap-1.5">
+              <UBadge v-if="r.expired" color="error" variant="subtle" size="sm">
+                {{ r.expired }} périmé(s)
+              </UBadge>
+              <UBadge v-if="r.soon" color="warning" variant="subtle" size="sm">
+                {{ r.soon }} à consommer vite
               </UBadge>
             </div>
-          </NuxtLink>
-          <UButton icon="i-lucide-plus" size="sm" color="neutral" variant="soft" aria-label="Racheter" @click="restock(f.product.id)" />
-        </li>
-      </ul>
-    </UCard>
-
-    <!-- Par lieu de stockage -->
-    <section class="space-y-2">
-      <h2 class="font-semibold">
-        Par lieu de stockage
-      </h2>
-      <button
-        v-for="r in reports"
-        :key="r.id ?? 'none'"
-        type="button"
-        class="w-full text-left rounded-xl border border-default bg-elevated/40 p-3 space-y-2 hover:bg-elevated transition"
-        @click="goTo(r.id)"
-      >
-        <div class="flex items-center gap-2">
-          <UIcon :name="r.icon" class="size-5 text-primary" />
-          <p class="font-semibold flex-1">
-            {{ r.label }}
-          </p>
-          <span class="text-sm text-muted">{{ r.products }} produit(s) · {{ r.lots }} lot(s)</span>
+            <div v-if="r.types.length" class="flex flex-wrap gap-1">
+              <UBadge v-for="t in r.types" :key="t.label" color="neutral" variant="outline" size="sm">
+                {{ t.label }} · {{ t.count }}
+              </UBadge>
+            </div>
+            <p v-else class="text-xs text-muted">
+              Vide
+            </p>
+          </button>
         </div>
-        <div v-if="r.expired || r.soon" class="flex gap-1.5">
-          <UBadge v-if="r.expired" color="error" variant="subtle" size="sm">
-            {{ r.expired }} périmé(s)
-          </UBadge>
-          <UBadge v-if="r.soon" color="warning" variant="subtle" size="sm">
-            {{ r.soon }} à consommer vite
-          </UBadge>
-        </div>
-        <div v-if="r.types.length" class="flex flex-wrap gap-1">
-          <UBadge v-for="t in r.types" :key="t.label" color="neutral" variant="outline" size="sm">
-            {{ t.label }} · {{ t.count }}
-          </UBadge>
-        </div>
-        <p v-else class="text-xs text-muted">
-          Vide
-        </p>
-      </button>
-    </section>
-
-    <!-- Activité -->
-    <UCard v-if="lotsCount">
-      <template #header>
-        <h2 class="font-semibold">
-          30 derniers jours
-        </h2>
-      </template>
-      <div class="grid grid-cols-3 gap-2 text-center">
-        <div v-for="k in MOVEMENT_KINDS" :key="k.value">
-          <UIcon :name="k.icon" class="size-5" :class="`text-${k.color}`" />
-          <p class="text-xl font-bold">
-            {{ recent[k.value] }}
-          </p>
-          <p class="text-xs text-muted">
-            {{ k.past }}(s)
-          </p>
-        </div>
-      </div>
-    </UCard>
+      </section>
+    </div>
 
     <AddStockModal v-model:open="addOpen" :household-id="householdId" :product-id="addProductId" />
   </div>

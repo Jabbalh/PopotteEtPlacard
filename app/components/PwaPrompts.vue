@@ -30,7 +30,7 @@ watch(() => $pwa?.offlineReady, (ready) => {
 </script>
 
 <template>
-  <div class="fixed inset-x-0 bottom-24 z-40 px-4 pointer-events-none">
+  <div class="fixed inset-x-0 bottom-24 lg:bottom-6 z-40 px-4 pointer-events-none">
     <div class="max-w-lg mx-auto space-y-2">
       <!-- Nouvelle version -->
       <div

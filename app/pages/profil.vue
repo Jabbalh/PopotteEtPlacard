@@ -31,7 +31,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-4 max-w-2xl">
     <h1 class="text-2xl font-bold">
       Mon profil
     </h1>

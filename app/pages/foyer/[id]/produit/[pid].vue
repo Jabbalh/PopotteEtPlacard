@@ -153,123 +153,128 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
       <UButton icon="i-lucide-trash-2" color="error" variant="ghost" aria-label="Supprimer" @click="deleteOpen = true" />
     </div>
 
-    <UCard>
-      <div class="flex gap-4">
-        <img v-if="product.image_url" :src="product.image_url" alt="" class="size-24 rounded-lg object-contain bg-white shrink-0">
-        <div class="min-w-0 flex-1 space-y-1.5">
-          <p v-if="product.brand" class="text-sm text-muted">
-            {{ product.brand }}
+    <div class="space-y-5 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-8 lg:items-start">
+      <div class="lg:sticky lg:top-20">
+        <UCard>
+          <div class="flex gap-4">
+            <img v-if="product.image_url" :src="product.image_url" alt="" class="size-24 rounded-lg object-contain bg-white shrink-0">
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <p v-if="product.brand" class="text-sm text-muted">
+                {{ product.brand }}
+              </p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <NutriscoreBadge :value="product.nutriscore" />
+                <UBadge v-if="product.food_type_id && foodTypeById.get(product.food_type_id)" color="neutral" variant="subtle">
+                  {{ foodTypeById.get(product.food_type_id)!.label }}
+                </UBadge>
+                <UBadge v-if="product.barcode" color="neutral" variant="outline" icon="i-lucide-barcode">
+                  {{ product.barcode }}
+                </UBadge>
+              </div>
+              <div>
+                <p class="text-xs text-muted">
+                  Aliment favori
+                </p>
+                <StarRating v-model="rating" />
+              </div>
+            </div>
+          </div>
+          <p v-if="product.description" class="text-sm mt-3">
+            {{ product.description }}
           </p>
-          <div class="flex items-center gap-2 flex-wrap">
-            <NutriscoreBadge :value="product.nutriscore" />
-            <UBadge v-if="product.food_type_id && foodTypeById.get(product.food_type_id)" color="neutral" variant="subtle">
-              {{ foodTypeById.get(product.food_type_id)!.label }}
-            </UBadge>
-            <UBadge v-if="product.barcode" color="neutral" variant="outline" icon="i-lucide-barcode">
-              {{ product.barcode }}
-            </UBadge>
-          </div>
-          <div>
-            <p class="text-xs text-muted">
-              Aliment favori
+          <details v-if="product.ingredients" class="mt-3 text-sm">
+            <summary class="cursor-pointer text-muted">
+              Composition
+            </summary>
+            <p class="mt-1 whitespace-pre-line">
+              {{ product.ingredients }}
             </p>
-            <StarRating v-model="rating" />
-          </div>
-        </div>
+          </details>
+        </UCard>
       </div>
-      <p v-if="product.description" class="text-sm mt-3">
-        {{ product.description }}
-      </p>
-      <details v-if="product.ingredients" class="mt-3 text-sm">
-        <summary class="cursor-pointer text-muted">
-          Composition
-        </summary>
-        <p class="mt-1 whitespace-pre-line">
-          {{ product.ingredients }}
-        </p>
-      </details>
-    </UCard>
+      <div class="space-y-5">
+        <!-- Stock -->
+        <section class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold">
+              En stock : {{ formatQuantity(total, product.unit) }}
+            </h2>
+            <UButton icon="i-lucide-plus" size="sm" @click="addOpen = true">
+              Ajouter
+            </UButton>
+          </div>
+          <p v-if="product.rating && total <= product.low_threshold" class="text-sm text-warning flex items-center gap-1">
+            <UIcon name="i-lucide-triangle-alert" /> {{ total <= 0 ? 'En rupture' : 'Bientôt en rupture' }} (seuil : {{ formatQuantity(product.low_threshold, product.unit) }})
+          </p>
+          <div v-for="lot in activeLots" :key="lot.item.id" class="p-3 rounded-xl border border-default bg-elevated/40 space-y-2">
+            <div class="flex items-start gap-2">
+              <div class="flex-1 min-w-0">
+                <p class="font-medium">
+                  {{ formatQuantity(lot.remaining, product.unit) }}
+                  <span v-if="lot.remaining !== Number(lot.item.quantity)" class="text-xs text-muted font-normal">sur {{ formatQuantity(lot.item.quantity, product.unit) }}</span>
+                </p>
+                <p class="text-xs text-muted">
+                  <template v-if="lot.item.location_id && locationById.get(lot.item.location_id)">
+                    {{ locationById.get(lot.item.location_id)!.label }} ·
+                  </template>
+                  acheté le {{ formatDate(lot.item.purchased_on) }}
+                  <UIcon v-if="lot.item._dirty" name="i-lucide-cloud-upload" class="size-3 text-warning ml-1" />
+                </p>
+              </div>
+              <UBadge :color="expiryInfo(lot.item.expires_on).color" variant="subtle" size="sm">
+                {{ expiryInfo(lot.item.expires_on).label }}
+              </UBadge>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <UButton size="sm" icon="i-lucide-minus" class="justify-center" @click="take(lot)">
+                Retirer
+              </UButton>
+              <UButton size="sm" icon="i-lucide-sliders-horizontal" color="neutral" variant="soft" class="justify-center" @click="openLot(lot)">
+                Modifier / corriger
+              </UButton>
+            </div>
+          </div>
+          <p v-if="!activeLots.length" class="text-sm text-muted text-center py-4 rounded-xl border border-dashed border-default">
+            Plus rien en stock.
+          </p>
+        </section>
 
-    <!-- Stock -->
-    <section class="space-y-2">
-      <div class="flex items-center justify-between">
-        <h2 class="font-semibold">
-          En stock : {{ formatQuantity(total, product.unit) }}
-        </h2>
-        <UButton icon="i-lucide-plus" size="sm" @click="addOpen = true">
-          Ajouter
-        </UButton>
+        <!-- Historique -->
+        <section v-if="history.length" class="space-y-2">
+          <h2 class="font-semibold">
+            Historique
+          </h2>
+          <ul class="divide-y divide-default rounded-xl border border-default">
+            <li v-for="m in history" :key="m.id" class="flex items-center gap-3 px-3 py-2">
+              <UIcon
+                :name="m.kind === 'adjusted' ? 'i-lucide-sliders-horizontal' : MOVEMENT_KINDS.find(k => k.value === m.kind)!.icon"
+                class="size-4 text-muted shrink-0"
+              />
+              <div class="flex-1 min-w-0">
+                <p class="text-sm">
+                  {{ movementLabel(m.kind) }} :
+                  <strong>{{ m.kind === 'adjusted' ? (m.quantity > 0 ? '−' : '+') : '' }}{{ formatQuantity(Math.abs(m.quantity), product.unit) }}</strong>
+                  <span v-if="m.recipe_name" class="text-muted"> · {{ m.recipe_name }}</span>
+                </p>
+                <p class="text-xs text-muted truncate">
+                  {{ formatDate(m.occurred_on) }}
+                  <template v-if="accountName(m.created_by)">
+                    · {{ accountName(m.created_by) }}
+                  </template>
+                  <template v-if="m.note">
+                    · {{ m.note }}
+                  </template>
+                  <template v-if="lotById.get(m.stock_item_id)?.item.expires_on">
+                    · lot du {{ formatDate(lotById.get(m.stock_item_id)!.item.expires_on) }}
+                  </template>
+                </p>
+              </div>
+              <UButton icon="i-lucide-undo-2" size="xs" color="neutral" variant="ghost" aria-label="Annuler cette sortie" @click="cancelMovement(m.id)" />
+            </li>
+          </ul>
+        </section>
       </div>
-      <p v-if="product.rating && total <= product.low_threshold" class="text-sm text-warning flex items-center gap-1">
-        <UIcon name="i-lucide-triangle-alert" /> {{ total <= 0 ? 'En rupture' : 'Bientôt en rupture' }} (seuil : {{ formatQuantity(product.low_threshold, product.unit) }})
-      </p>
-      <div v-for="lot in activeLots" :key="lot.item.id" class="p-3 rounded-xl border border-default bg-elevated/40 space-y-2">
-        <div class="flex items-start gap-2">
-          <div class="flex-1 min-w-0">
-            <p class="font-medium">
-              {{ formatQuantity(lot.remaining, product.unit) }}
-              <span v-if="lot.remaining !== Number(lot.item.quantity)" class="text-xs text-muted font-normal">sur {{ formatQuantity(lot.item.quantity, product.unit) }}</span>
-            </p>
-            <p class="text-xs text-muted">
-              <template v-if="lot.item.location_id && locationById.get(lot.item.location_id)">
-                {{ locationById.get(lot.item.location_id)!.label }} ·
-              </template>
-              acheté le {{ formatDate(lot.item.purchased_on) }}
-              <UIcon v-if="lot.item._dirty" name="i-lucide-cloud-upload" class="size-3 text-warning ml-1" />
-            </p>
-          </div>
-          <UBadge :color="expiryInfo(lot.item.expires_on).color" variant="subtle" size="sm">
-            {{ expiryInfo(lot.item.expires_on).label }}
-          </UBadge>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <UButton size="sm" icon="i-lucide-minus" class="justify-center" @click="take(lot)">
-            Retirer
-          </UButton>
-          <UButton size="sm" icon="i-lucide-sliders-horizontal" color="neutral" variant="soft" class="justify-center" @click="openLot(lot)">
-            Modifier / corriger
-          </UButton>
-        </div>
-      </div>
-      <p v-if="!activeLots.length" class="text-sm text-muted text-center py-4 rounded-xl border border-dashed border-default">
-        Plus rien en stock.
-      </p>
-    </section>
-
-    <!-- Historique -->
-    <section v-if="history.length" class="space-y-2">
-      <h2 class="font-semibold">
-        Historique
-      </h2>
-      <ul class="divide-y divide-default rounded-xl border border-default">
-        <li v-for="m in history" :key="m.id" class="flex items-center gap-3 px-3 py-2">
-          <UIcon
-            :name="m.kind === 'adjusted' ? 'i-lucide-sliders-horizontal' : MOVEMENT_KINDS.find(k => k.value === m.kind)!.icon"
-            class="size-4 text-muted shrink-0"
-          />
-          <div class="flex-1 min-w-0">
-            <p class="text-sm">
-              {{ movementLabel(m.kind) }} :
-              <strong>{{ m.kind === 'adjusted' ? (m.quantity > 0 ? '−' : '+') : '' }}{{ formatQuantity(Math.abs(m.quantity), product.unit) }}</strong>
-              <span v-if="m.recipe_name" class="text-muted"> · {{ m.recipe_name }}</span>
-            </p>
-            <p class="text-xs text-muted truncate">
-              {{ formatDate(m.occurred_on) }}
-              <template v-if="accountName(m.created_by)">
-                · {{ accountName(m.created_by) }}
-              </template>
-              <template v-if="m.note">
-                · {{ m.note }}
-              </template>
-              <template v-if="lotById.get(m.stock_item_id)?.item.expires_on">
-                · lot du {{ formatDate(lotById.get(m.stock_item_id)!.item.expires_on) }}
-              </template>
-            </p>
-          </div>
-          <UButton icon="i-lucide-undo-2" size="xs" color="neutral" variant="ghost" aria-label="Annuler cette sortie" @click="cancelMovement(m.id)" />
-        </li>
-      </ul>
-    </section>
+    </div>
 
     <AddStockModal v-model:open="addOpen" :household-id="householdId" :product-id="productId" />
     <TakeStockModal v-model:open="takeOpen" :household-id="householdId" :lines="takeLines" />

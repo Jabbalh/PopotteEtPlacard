@@ -118,70 +118,72 @@ function status(i: AppInvite) {
       title="Connexion internet requise"
     />
 
-    <UCard>
-      <template #header>
-        <h2 class="font-semibold">
-          Nouvelle invitation
-        </h2>
-        <p class="text-sm text-muted">
-          Lien à usage unique : il ne sert qu'à créer un seul compte.
-        </p>
-      </template>
-      <form class="space-y-4" @submit.prevent="create">
-        <UFormField label="Pour qui ?" hint="Note pour vous seul">
-          <UInput v-model="form.note" placeholder="ex. Julie (cousine)" class="w-full" />
-        </UFormField>
-        <UFormField label="Validité">
-          <div class="flex gap-2">
-            <UButton
-              v-for="d in durations"
-              :key="d.value"
-              size="sm"
-              :variant="form.days === d.value ? 'solid' : 'soft'"
-              :color="form.days === d.value ? 'primary' : 'neutral'"
-              @click="form.days = d.value"
-            >
-              {{ d.label }}
-            </UButton>
-          </div>
-        </UFormField>
-        <UButton type="submit" block icon="i-lucide-send" :loading="creating" :disabled="!online">
-          Créer et partager le lien
-        </UButton>
-      </form>
-    </UCard>
+    <div class="space-y-5 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-6 lg:items-start">
+      <UCard>
+        <template #header>
+          <h2 class="font-semibold">
+            Nouvelle invitation
+          </h2>
+          <p class="text-sm text-muted">
+            Lien à usage unique : il ne sert qu'à créer un seul compte.
+          </p>
+        </template>
+        <form class="space-y-4" @submit.prevent="create">
+          <UFormField label="Pour qui ?" hint="Note pour vous seul">
+            <UInput v-model="form.note" placeholder="ex. Julie (cousine)" class="w-full" />
+          </UFormField>
+          <UFormField label="Validité">
+            <div class="flex gap-2">
+              <UButton
+                v-for="d in durations"
+                :key="d.value"
+                size="sm"
+                :variant="form.days === d.value ? 'solid' : 'soft'"
+                :color="form.days === d.value ? 'primary' : 'neutral'"
+                @click="form.days = d.value"
+              >
+                {{ d.label }}
+              </UButton>
+            </div>
+          </UFormField>
+          <UButton type="submit" block icon="i-lucide-send" :loading="creating" :disabled="!online">
+            Créer et partager le lien
+          </UButton>
+        </form>
+      </UCard>
 
-    <UCard>
-      <template #header>
-        <h2 class="font-semibold">
-          Invitations
-        </h2>
-      </template>
-      <div v-if="loading" class="space-y-2">
-        <USkeleton v-for="i in 3" :key="i" class="h-12 w-full" />
-      </div>
-      <p v-else-if="!invites.length" class="text-sm text-muted">
-        Aucune invitation pour le moment.
-      </p>
-      <ul v-else class="divide-y divide-default -my-2">
-        <li v-for="i in invites" :key="i.id" class="py-3 flex items-center gap-2">
-          <div class="flex-1 min-w-0">
-            <p class="font-medium truncate">
-              {{ i.note || 'Sans note' }}
-            </p>
-            <p class="text-xs text-muted">
-              Créée le {{ formatDateTime(i.created_at) }}
-            </p>
-            <UBadge :color="status(i).color" variant="subtle" size="sm" class="mt-1">
-              {{ status(i).label }}
-            </UBadge>
-          </div>
-          <template v-if="status(i).active">
-            <UButton icon="i-lucide-share-2" size="sm" color="neutral" variant="ghost" aria-label="Partager" @click="share(i.token)" />
-            <UButton icon="i-lucide-link-2-off" size="sm" color="error" variant="ghost" aria-label="Révoquer" @click="revoke(i)" />
-          </template>
-        </li>
-      </ul>
-    </UCard>
+      <UCard>
+        <template #header>
+          <h2 class="font-semibold">
+            Invitations
+          </h2>
+        </template>
+        <div v-if="loading" class="space-y-2">
+          <USkeleton v-for="i in 3" :key="i" class="h-12 w-full" />
+        </div>
+        <p v-else-if="!invites.length" class="text-sm text-muted">
+          Aucune invitation pour le moment.
+        </p>
+        <ul v-else class="divide-y divide-default -my-2">
+          <li v-for="i in invites" :key="i.id" class="py-3 flex items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="font-medium truncate">
+                {{ i.note || 'Sans note' }}
+              </p>
+              <p class="text-xs text-muted">
+                Créée le {{ formatDateTime(i.created_at) }}
+              </p>
+              <UBadge :color="status(i).color" variant="subtle" size="sm" class="mt-1">
+                {{ status(i).label }}
+              </UBadge>
+            </div>
+            <template v-if="status(i).active">
+              <UButton icon="i-lucide-share-2" size="sm" color="neutral" variant="ghost" aria-label="Partager" @click="share(i.token)" />
+              <UButton icon="i-lucide-link-2-off" size="sm" color="error" variant="ghost" aria-label="Révoquer" @click="revoke(i)" />
+            </template>
+          </li>
+        </ul>
+      </UCard>
+    </div>
   </div>
 </template>

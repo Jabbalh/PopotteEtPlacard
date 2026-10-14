@@ -97,6 +97,15 @@ function take(row: Row) {
           Stock
         </h1>
       </div>
+      <!-- PC : boutons d'ajout dans l'en-tête (boutons flottants sur mobile et tablette) -->
+      <div class="hidden lg:flex items-center gap-2">
+        <UButton icon="i-lucide-plus" color="neutral" variant="soft" @click="openAdd(false)">
+          Manuel
+        </UButton>
+        <UButton icon="i-lucide-scan-barcode" @click="openAdd(true)">
+          Scanner
+        </UButton>
+      </div>
       <UButton
         :icon="sort === 'expiry' ? 'i-lucide-calendar-clock' : 'i-lucide-arrow-down-a-z'"
         color="neutral"
@@ -115,7 +124,7 @@ function take(row: Row) {
     </UInput>
 
     <!-- Filtre par lieu de stockage -->
-    <div class="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 no-scrollbar">
+    <div class="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 no-scrollbar md:flex-wrap md:overflow-visible md:mx-0 md:px-0">
       <UButton
         size="sm"
         class="rounded-full shrink-0"
@@ -139,7 +148,7 @@ function take(row: Row) {
       </UButton>
     </div>
 
-    <div v-if="stockLoading" class="space-y-2">
+    <div v-if="stockLoading" class="grid grid-cols-1 gap-2 md:grid-cols-2">
       <USkeleton v-for="i in 4" :key="i" class="h-16 w-full" />
     </div>
 
@@ -158,7 +167,7 @@ function take(row: Row) {
       Aucun aliment ne correspond.
     </p>
 
-    <ul v-else class="space-y-2">
+    <ul v-else class="grid grid-cols-1 gap-2 md:grid-cols-2">
       <li
         v-for="row in rows"
         :key="row.product.id"
@@ -205,7 +214,7 @@ function take(row: Row) {
     </ul>
 
     <!-- Boutons d'ajout -->
-    <div class="fixed z-20 right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] flex flex-col items-end gap-2">
+    <div class="fixed z-20 right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] flex lg:hidden flex-col items-end gap-2">
       <UButton icon="i-lucide-plus" color="neutral" variant="solid" size="lg" class="rounded-full shadow-lg" @click="openAdd(false)">
         Manuel
       </UButton>
