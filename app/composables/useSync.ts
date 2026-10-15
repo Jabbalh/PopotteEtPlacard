@@ -39,13 +39,13 @@ const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
   },
   locations: {
     remote: 'pp_locations',
-    fields: ['id', 'household_id', 'label', 'icon', 'position', 'created_at', 'deleted_at'],
+    fields: ['id', 'household_id', 'label', 'icon', 'freezer', 'position', 'created_at', 'deleted_at'],
     byHousehold: true,
     byUser: false
   },
   foodTypes: {
     remote: 'pp_food_types',
-    fields: ['id', 'household_id', 'label', 'position', 'created_at', 'deleted_at'],
+    fields: ['id', 'household_id', 'label', 'freezer_months', 'position', 'created_at', 'deleted_at'],
     byHousehold: true,
     byUser: false
   },

@@ -138,6 +138,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 |---|---|
 | 1 | Schéma initial |
 | 2 | `products.reorder = false`, `products.ordered_at = null` sur les lignes existantes (la synchro envoie `null` pour un champ absent, refusé par `reorder not null`) |
+| 3 | `locations.freezer` (`isFreezerLike` : icône flocon ou libellé « Congélateur… ») et `foodTypes.freezer_months` (`FREEZER_MONTHS` par libellé) sur les lignes existantes — même règle que la migration serveur, pour qu'une ligne locale non envoyée n'écrase pas la valeur serveur |
 
 ## 6. Synchronisation
 
@@ -184,6 +185,14 @@ Une ligne reçue n'écrase **jamais** une ligne locale `_dirty`. Le recouvrement
 - `byProduct` : tous les produits non supprimés avec total, lots et péremption la plus proche (sert aux ruptures).
 - Un ajustement d'inventaire crée un mouvement `adjusted` de quantité `restant actuel − restant voulu` (négatif = ajout).
 - `toOrder` : produits `reorder` dont le total est ≤ `low_threshold`, rupture d'abord puis non commandés. `isOrdered(p)` : `ordered_at` renseigné et postérieur au `created_at` du dernier lot du produit (lots épuisés compris) ; ajouter un lot suffit donc à lever le statut, sans écriture supplémentaire.
+
+### Conservation au congélateur
+
+Pas de calcul à l'affichage : la date limite est **écrite dans `expires_on`** du lot, si bien que badges, idées et bilan s'appliquent sans changement.
+
+- `AddStockModal` : `freezerLimit` = rangement `freezer` + type avec `freezer_months` → `addMonths(purchased_on, n)`. Un `watch` sur la date proposée remplit `expires_on` s'il est vide ou égal à l'ancienne proposition (donc jamais une date saisie à la main) ; `reset()` la réapplique explicitement.
+- Fiche produit, *Modifier le lot* : `lotFreezer` seulement si le lot passe d'un rangement non congélateur à un congélateur ; date = `addMonths(aujourd'hui, n)`, qui remplace la péremption ; retour arrière → `expires_on` d'origine.
+- `addMonths` (`utils/format.ts`) ramène au dernier jour du mois si besoin (31 janvier + 1 mois → 28/29 février).
 
 ### Goûts (`useHouseholdTastes`)
 

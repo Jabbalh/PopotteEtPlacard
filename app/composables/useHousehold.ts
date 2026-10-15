@@ -87,8 +87,8 @@ export function useHouseholdActions() {
     await db.transaction('rw', [db.households, db.people, db.locations, db.foodTypes], async () => {
       await db.households.add(household)
       await db.people.add(me)
-      await db.locations.bulkAdd(DEFAULT_LOCATIONS.map((l, i) => ({ ...base(), household_id: household.id, label: l.label, icon: l.icon, position: i + 1 })))
-      await db.foodTypes.bulkAdd(DEFAULT_FOOD_TYPES.map((label, i) => ({ ...base(), household_id: household.id, label, position: i + 1 })))
+      await db.locations.bulkAdd(DEFAULT_LOCATIONS.map((l, i) => ({ ...base(), household_id: household.id, label: l.label, icon: l.icon, freezer: !!l.freezer, position: i + 1 })))
+      await db.foodTypes.bulkAdd(DEFAULT_FOOD_TYPES.map((label, i) => ({ ...base(), household_id: household.id, label, freezer_months: FREEZER_MONTHS[label] ?? null, position: i + 1 })))
     })
     schedule(0)
     return household
@@ -124,13 +124,21 @@ export function useHouseholdActions() {
       if (existing.deleted_at) await updateOption(name, existing.id, { deleted_at: null })
       return existing
     }
-    const option = { ...base(), household_id: householdId, label: label.trim(), position: Math.max(0, ...siblings.map(o => o.position)) + 1, ...(name === 'locations' ? { icon: icon || 'i-lucide-package' } : {}) }
+    const option = {
+      ...base(),
+      household_id: householdId,
+      label: label.trim(),
+      position: Math.max(0, ...siblings.map(o => o.position)) + 1,
+      ...(name === 'locations'
+        ? { icon: icon || 'i-lucide-package', freezer: isFreezerLike(label, icon) }
+        : { freezer_months: FREEZER_MONTHS[label.trim()] ?? null })
+    }
     await table.add(option as Location)
     schedule()
     return option as Location
   }
 
-  const updateOption = (name: OptionTable, id: string, changes: Partial<Pick<Location, 'label' | 'icon' | 'position' | 'deleted_at'>>) =>
+  const updateOption = (name: OptionTable, id: string, changes: Partial<Pick<Location, 'label' | 'icon' | 'freezer' | 'position' | 'deleted_at'> & Pick<FoodType, 'freezer_months'>>) =>
     patch(optionTable(name), id, changes)
 
   /** Réécrit les positions dans l'ordre donné (seules les lignes modifiées sont marquées à envoyer) */

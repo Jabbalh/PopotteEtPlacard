@@ -152,6 +152,7 @@ function askLeave() {
           </h2>
           <p class="text-sm text-muted">
             Les choix proposés à l'ajout d'un produit. Touchez un libellé pour le renommer, l'icône pour la changer.
+            Le thermomètre marque un congélateur ; le flocon d'un type règle sa durée de conservation au congélateur.
           </p>
         </template>
         <UTabs

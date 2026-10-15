@@ -17,6 +17,15 @@ export function fromDateKey(key: string): Date {
   return new Date(y!, m! - 1, d!)
 }
 
+/** Ajoute des mois à une date AAAA-MM-JJ (31 janvier + 1 mois → fin février) */
+export function addMonths(key: string, months: number): string {
+  const d = fromDateKey(key)
+  const day = d.getDate()
+  d.setMonth(d.getMonth() + months)
+  if (d.getDate() < day) d.setDate(0)
+  return toDateKey(d)
+}
+
 /** Nombre de jours entre aujourd'hui et la date (négatif si passée) */
 export function daysUntil(key: string): number {
   const today = fromDateKey(todayKey())
@@ -96,9 +105,28 @@ export const NUTRISCORES: { value: Nutriscore, color: string }[] = [
 /** Lieux et types proposés à la création d'un foyer (modifiables ensuite) */
 export const DEFAULT_LOCATIONS = [
   { label: 'Frigo', icon: 'i-lucide-refrigerator' },
-  { label: 'Congélateur', icon: 'i-lucide-snowflake' },
+  { label: 'Congélateur', icon: 'i-lucide-snowflake', freezer: true },
   { label: 'Autre', icon: 'i-lucide-package' }
 ]
+
+/** Rangement qui ressemble à un congélateur (icône flocon ou libellé) */
+export function isFreezerLike(label: string, icon: string): boolean {
+  return icon === 'i-lucide-snowflake' || /^cong[eé]lateur/i.test(label.trim())
+}
+
+/**
+ * Durée de conservation au congélateur proposée par type d'aliment (mois).
+ * Valeurs prudentes, modifiables dans les réglages du foyer. Reprises par la migration serveur.
+ */
+export const FREEZER_MONTHS: Record<string, number> = {
+  'Fruits et légumes': 8,
+  'Viande': 6,
+  'Poisson': 4,
+  'Produits laitiers': 3,
+  'Féculents': 3,
+  'Épicerie sucrée': 3,
+  'Plats préparés': 3
+}
 
 export const DEFAULT_FOOD_TYPES = [
   'Fruits et légumes', 'Viande', 'Poisson', 'Produits laitiers', 'Œufs', 'Féculents',

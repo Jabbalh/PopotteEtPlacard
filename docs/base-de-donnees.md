@@ -9,6 +9,7 @@ Migrations de l'application (dans l'ordre, dans le SQL Editor, **après** celles
 | [`20261014100000_popotte_init.sql`](../supabase/migrations/20261014100000_popotte_init.sql) | Schéma initial |
 | [`20261015000000_preferences_barcode.sql`](../supabase/migrations/20261015000000_preferences_barcode.sql) | Code-barres des préférences d'aliments |
 | [`20261015120000_products_reorder.sql`](../supabase/migrations/20261015120000_products_reorder.sql) | Produits à commander (`reorder`, `ordered_at`) |
+| [`20261015130000_freezer_months.sql`](../supabase/migrations/20261015130000_freezer_months.sql) | Conservation au congélateur (`pp_locations.freezer`, `pp_food_types.freezer_months`) et valeurs initiales |
 
 Une migration qui ajoute une colonne synchronisée doit être exécutée **avant** le déploiement de l'application qui l'utilise.
 
@@ -176,13 +177,18 @@ Index :
 | `household_id` | uuid | not null → `pp_households` cascade | |
 | `label` | text | not null | Frigo, Congélateur… |
 | `icon` | text | not null, défaut `''` | Nom d'icône Lucide (`i-lucide-…`) |
+| `freezer` | boolean | not null, défaut `false` | Congélateur : la date limite des lots y est proposée selon le type d'aliment |
 | `position` | integer | not null, défaut 0 | Ordre d'affichage |
 
 `deleted_at` = archivé (masqué des choix, toujours affiché sur les lots existants).
 
 ### `pp_food_types` — types d'aliments
 
-Identique à `pp_locations`, sans `icon`.
+Comme `pp_locations`, sans `icon` ni `freezer`, plus :
+
+| Colonne | Type | Contraintes / défaut | Description |
+|---|---|---|---|
+| `freezer_months` | smallint | 1 à 60 ou null | Durée de conservation au congélateur (mois) ; date limite d'un lot congelé = date de congélation + durée |
 
 ### `pp_products` — catalogue du foyer
 

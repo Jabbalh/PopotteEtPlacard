@@ -93,8 +93,8 @@ Ces goûts et recettes sont **liés au compte** : ils apparaissent automatiqueme
 - Écran d'accueil *Mes foyers* : liste des foyers avec le nombre de personnes et de produits.
 - **Création** : nom du foyer + prénom de l'utilisateur dans ce foyer (proposé depuis le profil). Sont créés automatiquement :
   - la personne de l'utilisateur, liée à son compte, propriétaire ;
-  - les rangements **Frigo**, **Congélateur**, **Autre** ;
-  - douze types d'aliments (Fruits et légumes, Viande, Poisson, Produits laitiers, Œufs, Féculents, Conserves, Épicerie sucrée, Épicerie salée, Boissons, Plats préparés, Autre).
+  - les rangements **Frigo**, **Congélateur** (marqué comme congélateur), **Autre** ;
+  - douze types d'aliments (Fruits et légumes, Viande, Poisson, Produits laitiers, Œufs, Féculents, Conserves, Épicerie sucrée, Épicerie salée, Boissons, Plats préparés, Autre), avec une durée de conservation au congélateur pour certains (voir § 8).
 - La création fonctionne hors connexion.
 - Au lancement, l'application ouvre directement le dernier foyer consulté (ou le seul foyer existant).
 
@@ -206,12 +206,32 @@ La popin s'ouvre depuis le stock, la fiche produit (ajout d'un lot), le bilan (r
 | Quantité | ✅ (> 0) | 1 |
 | Unité | | pièce (g, kg, ml, cl, L, paquet, boîte, bouteille, pot, sachet, tranche) |
 | Date d'achat | | Aujourd'hui |
-| Date de péremption | | Vide |
+| Date de péremption | | Vide (au congélateur : date limite selon le type, voir ci-dessous) |
 | Type d'aliment | | Vide |
 | Rangé dans | | Rangement filtré dans la liste, sinon le premier |
 
 - En tapant un nom, les produits du foyer qui y ressemblent sont proposés : en choisir un réutilise le produit (son unité n'est alors plus modifiable).
 - **+ Autre produit** enregistre et rouvre une popin vide (saisie de courses à la chaîne).
+
+### Conservation au congélateur
+
+Chaque type d'aliment peut avoir une **durée de conservation au congélateur** (en mois), et chaque rangement peut être marqué **congélateur** (réglages du foyer, § 13).
+
+Quand le lot est rangé dans un congélateur et que le type d'aliment a une durée, la **date de péremption est proposée** : date d'achat + N mois (ex. Viande, 6 mois, achetée le 15 octobre → jusqu'au 15 avril). Un message sous les dates le rappelle (« ❄ Viande au congélateur : 6 mois, soit jusqu'au … »).
+
+- La date proposée suit les changements de rangement, de type ou de date d'achat tant qu'elle n'a pas été modifiée à la main ; une date saisie est conservée (*Appliquer* reprend la date proposée).
+- Congélateur sans durée pour le type choisi : un message invite à choisir un type ou à régler sa durée.
+- Le lot est ensuite traité comme les autres : badges de péremption, *À consommer*, *Anti-gaspi*, bilan.
+
+Durées proposées à la création d'un foyer (modifiables) :
+
+| Type | Durée |
+|---|---|
+| Fruits et légumes | 8 mois |
+| Viande | 6 mois |
+| Poisson | 4 mois |
+| Produits laitiers, Féculents, Épicerie sucrée, Plats préparés | 3 mois |
+| Œufs, Conserves, Épicerie salée, Boissons, Autre | — |
 
 ## 9. Sortie de stock et corrections
 
@@ -230,6 +250,7 @@ Fenêtre **« Retirer du stock »** (nom de l'aliment en sous-titre ; nom de la 
 Fiche produit → lot → *Modifier / corriger* :
 - **quantité restante** : l'écart est enregistré comme un *ajustement de stock* (visible dans l'historique) ;
 - rangement, date d'achat, date de péremption ;
+- **transfert vers un congélateur** (depuis un rangement qui n'en est pas un) : le lot est considéré congelé le jour même, la date de péremption devient aujourd'hui + la durée de conservation du type ; revenir au rangement d'origine rétablit la date initiale ;
 - **supprimer le lot** (erreur de saisie, annulable).
 
 Un lot dont le restant atteint 0 disparaît du stock mais reste dans l'historique.
@@ -315,7 +336,9 @@ Indépendant des **Favoris à racheter** du bilan (fondés sur les étoiles).
 - **Rangements** (icône + libellé) et **types d'aliments** :
   - ajouter, renommer (toucher le libellé), changer l'icône (toucher l'icône), réordonner ;
   - retirer : l'élément est archivé (masqué des choix, conservé sur les produits existants), restaurable ;
-  - le nombre d'utilisations est affiché.
+  - le nombre d'utilisations est affiché ;
+  - rangement : bouton thermomètre ❄ pour le marquer **congélateur** (un rangement nommé « Congélateur » ou à l'icône flocon l'est d'office à sa création) ;
+  - type d'aliment : bouton flocon pour régler sa **durée de conservation au congélateur** (en mois, 0 = aucune).
 - **Zone sensible** : *Supprimer le foyer* (propriétaire : stock, personnes et goûts du foyer supprimés pour tous ; les goûts de compte sont conservés) ou *Quitter le foyer* (membre).
 
 ## 14. Hors connexion

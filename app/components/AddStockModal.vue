@@ -51,6 +51,20 @@ function emptyForm() {
 }
 const form = reactive(emptyForm())
 
+/** Rangé au congélateur avec un type dont la durée de conservation est connue : date limite = achat + N mois */
+const inFreezer = computed(() => !!locations.value.find(l => l.id === form.location_id)?.freezer)
+const freezerLimit = computed(() => {
+  if (!inFreezer.value) return null
+  const type = foodTypes.value.find(t => t.id === form.food_type_id)
+  if (!type?.freezer_months) return null
+  return { months: type.freezer_months, type: type.label, date: addMonths(form.purchased_on || todayKey(), type.freezer_months) }
+})
+
+// La date proposée remplit la péremption tant qu'elle est vide ou n'a pas été modifiée à la main
+watch(() => freezerLimit.value?.date, (date, previous) => {
+  if (!form.expires_on || form.expires_on === previous) form.expires_on = date ?? ''
+})
+
 function reset() {
   Object.assign(form, emptyForm())
   existing.value = null
@@ -60,6 +74,8 @@ function reset() {
     const p = products.value.find(x => x.id === props.productId)
     if (p) useExisting(p)
   }
+  // le formulaire a été vidé : la date proposée n'a peut-être pas changé (le watch ne se déclencherait pas)
+  form.expires_on = freezerLimit.value?.date ?? ''
   scanning.value = !!props.scan && !props.productId
 }
 
@@ -316,6 +332,13 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
               <UInput v-model="form.expires_on" type="date" class="w-full" />
             </UFormField>
           </div>
+          <p v-if="freezerLimit" class="-mt-3 text-xs text-muted flex items-start gap-1">
+            <UIcon name="i-lucide-snowflake" class="size-3.5 shrink-0 mt-px text-info" />
+            <span>
+              {{ freezerLimit.type }} au congélateur : {{ freezerLimit.months }} mois, soit jusqu'au {{ formatDate(freezerLimit.date) }}.
+              <button v-if="form.expires_on !== freezerLimit.date" type="button" class="underline" @click="form.expires_on = freezerLimit.date">Appliquer</button>
+            </span>
+          </p>
 
           <UFormField label="Type d'aliment">
             <USelect v-model="form.food_type_id" :items="foodTypeItems" placeholder="Choisir…" class="w-full" />
@@ -335,6 +358,9 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
                 {{ l.label }}
               </UButton>
             </div>
+            <p v-if="inFreezer && !freezerLimit" class="mt-1.5 text-xs text-muted">
+              Au congélateur, la date limite est proposée selon le type d'aliment (durée réglable dans les réglages du foyer).
+            </p>
           </UFormField>
         </form>
       </div>

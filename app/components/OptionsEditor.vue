@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import type { Location } from '~/utils/db'
+import type { HouseholdOption } from '~/utils/db'
 import type { OptionTable } from '~/composables/useHousehold'
+
+/** Rangement (icône, congélateur) ou type d'aliment (conservation au congélateur) */
+type Option = HouseholdOption & { icon?: string, freezer?: boolean, freezer_months?: number | null }
 
 /** Liste paramétrable d'un foyer : lieux de stockage (avec icône) ou types d'aliments */
 const props = defineProps<{
   householdId: string
   table: OptionTable
   /** éléments actifs, triés */
-  options: (Omit<Location, 'icon'> & { icon?: string })[]
+  options: Option[]
   /** éléments archivés */
-  archived: (Omit<Location, 'icon'> & { icon?: string })[]
+  archived: Option[]
   /** nombre d'utilisations de chaque élément */
   usage: Map<string, number>
   placeholder: string
@@ -51,6 +54,16 @@ async function commitEdit(o: { id: string, label: string }) {
 async function cycleIcon(o: { id: string, icon?: string }) {
   const i = LOCATION_ICONS.indexOf(o.icon ?? '')
   await updateOption(props.table, o.id, { icon: LOCATION_ICONS[(i + 1) % LOCATION_ICONS.length] })
+}
+
+async function toggleFreezer(o: Option) {
+  await updateOption(props.table, o.id, { freezer: !o.freezer })
+}
+
+/** Durée de conservation au congélateur d'un type (0 ou vide = non renseignée) */
+async function setFreezerMonths(o: Option, months: number | null | undefined) {
+  const value = months && months > 0 ? Math.min(60, Math.round(months)) : null
+  if (value !== (o.freezer_months ?? null)) await updateOption(props.table, o.id, { freezer_months: value })
 }
 
 async function move(index: number, delta: -1 | 1) {
@@ -96,6 +109,50 @@ async function restore(o: { id: string }) {
           <span v-if="usage.get(o.id)" class="text-xs text-muted ml-1.5">· {{ usage.get(o.id) }}</span>
           <UIcon v-if="o._dirty" name="i-lucide-cloud-upload" class="size-3 text-warning ml-1" />
         </button>
+        <UButton
+          v-if="withIcon"
+          icon="i-lucide-thermometer-snowflake"
+          size="xs"
+          :color="o.freezer ? 'info' : 'neutral'"
+          :variant="o.freezer ? 'soft' : 'ghost'"
+          :class="o.freezer ? '' : 'opacity-40'"
+          :aria-pressed="!!o.freezer"
+          :title="o.freezer ? 'Congélateur (toucher pour retirer)' : 'Marquer comme congélateur'"
+          aria-label="Congélateur"
+          @click="toggleFreezer(o)"
+        />
+        <UPopover v-else>
+          <UButton
+            icon="i-lucide-snowflake"
+            size="xs"
+            :color="o.freezer_months ? 'info' : 'neutral'"
+            :variant="o.freezer_months ? 'soft' : 'ghost'"
+            :class="o.freezer_months ? '' : 'opacity-40'"
+            title="Conservation au congélateur"
+            :aria-label="`Conservation au congélateur : ${o.freezer_months ? `${o.freezer_months} mois` : 'non renseignée'}`"
+          >
+            {{ o.freezer_months ? `${o.freezer_months} mois` : '' }}
+          </UButton>
+          <template #content>
+            <div class="p-3 space-y-2 w-60">
+              <p class="text-sm font-medium">
+                Au congélateur : {{ o.label }}
+              </p>
+              <UInputNumber
+                :model-value="o.freezer_months ?? undefined"
+                :min="0"
+                :max="60"
+                placeholder="Non renseignée"
+                :format-options="{ style: 'unit', unit: 'month', unitDisplay: 'long' }"
+                class="w-full"
+                @update:model-value="v => setFreezerMonths(o, v)"
+              />
+              <p class="text-xs text-muted">
+                Date limite proposée pour un lot rangé au congélateur. 0 = pas de date proposée.
+              </p>
+            </div>
+          </template>
+        </UPopover>
         <UButton icon="i-lucide-chevron-up" size="xs" color="neutral" variant="ghost" :disabled="i === 0" aria-label="Monter" @click="move(i, -1)" />
         <UButton icon="i-lucide-chevron-down" size="xs" color="neutral" variant="ghost" :disabled="i === options.length - 1" aria-label="Descendre" @click="move(i, 1)" />
         <UButton icon="i-lucide-x" size="xs" color="error" variant="ghost" aria-label="Retirer de la liste" @click="archive(o)" />

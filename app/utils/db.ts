@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import { FREEZER_MONTHS, isFreezerLike } from './format'
 
 /** Champs techniques locaux pour la synchronisation */
 export interface SyncFields {
@@ -42,9 +43,14 @@ export interface HouseholdOption extends SyncFields, Timestamps {
 
 export interface Location extends HouseholdOption {
   icon: string
+  /** congélateur : la date limite des lots dépend de la durée de conservation du type d'aliment */
+  freezer: boolean
 }
 
-export type FoodType = HouseholdOption
+export interface FoodType extends HouseholdOption {
+  /** durée de conservation au congélateur, en mois (null = non renseignée) */
+  freezer_months: number | null
+}
 
 export type Nutriscore = 'a' | 'b' | 'c' | 'd' | 'e'
 
@@ -192,6 +198,15 @@ export function openDb(userId: string): AppDb {
       p.reorder ??= false
       p.ordered_at ??= null
     }))
+    // conservation au congélateur : même règle que la migration serveur (lignes existantes)
+    db.version(3).stores({}).upgrade(async (tx) => {
+      await tx.table('locations').toCollection().modify((l: Partial<Location>) => {
+        l.freezer ??= isFreezerLike(l.label ?? '', l.icon ?? '')
+      })
+      await tx.table('foodTypes').toCollection().modify((t: Partial<FoodType>) => {
+        t.freezer_months ??= FREEZER_MONTHS[t.label ?? ''] ?? null
+      })
+    })
     instances.set(userId, db)
   }
   return db

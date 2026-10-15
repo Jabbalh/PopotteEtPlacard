@@ -98,7 +98,11 @@ function take(lot: Lot) {
 
 /** Modification d'un lot : lieu, dates, et correction de la quantité restante (inventaire) */
 const lotOpen = ref(false)
-const lotEdit = reactive({ id: '', location_id: undefined as string | undefined, purchased_on: '', expires_on: '', remaining: 0 as number | null, current: 0 })
+const lotEdit = reactive({
+  id: '', location_id: undefined as string | undefined, purchased_on: '', expires_on: '', remaining: 0 as number | null, current: 0,
+  /** rangement et péremption à l'ouverture (transfert vers le congélateur) */
+  initialLocation: null as string | null, initialExpiry: ''
+})
 
 function openLot(lot: Lot) {
   Object.assign(lotEdit, {
@@ -107,10 +111,28 @@ function openLot(lot: Lot) {
     purchased_on: lot.item.purchased_on,
     expires_on: lot.item.expires_on ?? '',
     remaining: lot.remaining,
-    current: lot.remaining
+    current: lot.remaining,
+    initialLocation: lot.item.location_id,
+    initialExpiry: lot.item.expires_on ?? ''
   })
   lotOpen.value = true
 }
+
+/** Lot transféré vers un congélateur : congelé aujourd'hui, date limite = aujourd'hui + durée du type */
+const lotFreezer = computed(() => {
+  const isFreezer = (id: string | null | undefined) => !!(id && locationById.value.get(id)?.freezer)
+  if (!isFreezer(lotEdit.location_id) || isFreezer(lotEdit.initialLocation)) return null
+  const type = product.value?.food_type_id ? foodTypeById.value.get(product.value.food_type_id) : undefined
+  if (!type?.freezer_months) return null
+  return { months: type.freezer_months, type: type.label, date: addMonths(todayKey(), type.freezer_months) }
+})
+
+// La date du congélateur remplace la péremption ; retour à la date d'origine si le transfert est annulé
+watch(() => lotFreezer.value?.date, (date, previous) => {
+  if (!lotOpen.value) return
+  if (date) lotEdit.expires_on = date
+  else if (previous && lotEdit.expires_on === previous) lotEdit.expires_on = lotEdit.initialExpiry
+})
 
 async function saveLot() {
   await updateStockItem(lotEdit.id, {
@@ -411,6 +433,13 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
               <UInput v-model="lotEdit.expires_on" type="date" class="w-full" />
             </UFormField>
           </div>
+          <p v-if="lotFreezer" class="-mt-2 text-xs text-muted flex items-start gap-1">
+            <UIcon name="i-lucide-snowflake" class="size-3.5 shrink-0 mt-px text-info" />
+            <span>
+              Congelé aujourd'hui · {{ lotFreezer.type }} : {{ lotFreezer.months }} mois, soit jusqu'au {{ formatDate(lotFreezer.date) }}.
+              <button v-if="lotEdit.expires_on !== lotFreezer.date" type="button" class="underline" @click="lotEdit.expires_on = lotFreezer.date">Appliquer</button>
+            </span>
+          </p>
           <UButton block color="error" variant="ghost" icon="i-lucide-trash-2" @click="deleteLot">
             Supprimer ce lot (erreur de saisie)
           </UButton>
