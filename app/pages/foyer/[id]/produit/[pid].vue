@@ -10,7 +10,7 @@ const productId = computed(() => route.params.pid as string)
 
 const { accountName } = useHousehold(householdId)
 const { locations, locationById, foodTypes, foodTypeById } = useHouseholdOptions(householdId)
-const { productById, allLots, movementsOf, loading } = useStock(householdId)
+const { productById, allLots, movementsOf, isOrdered, loading } = useStock(householdId)
 const { updateProduct, updateStockItem, addMovements, cancelMovements } = useHouseholdActions()
 
 const product = computed(() => productById.value.get(productId.value))
@@ -38,6 +38,15 @@ const rating = computed({
   get: () => product.value?.rating ?? 0,
   set: v => updateProduct(productId.value, { rating: v })
 })
+
+// --- À commander quand épuisé : enregistré immédiatement ---
+const reorder = computed({
+  get: () => product.value?.reorder ?? false,
+  set: v => updateProduct(productId.value, { reorder: v })
+})
+const toOrder = computed(() => !!product.value?.reorder && total.value <= product.value.low_threshold)
+const ordered = computed(() => !!product.value && isOrdered(product.value))
+const setOrdered = (v: boolean) => updateProduct(productId.value, { ordered_at: v ? new Date().toISOString() : null })
 
 // --- Modification du produit ---
 const editOpen = ref(false)
@@ -183,6 +192,7 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
                 </p>
                 <StarRating v-model="rating" />
               </div>
+              <USwitch v-model="reorder" label="À commander quand épuisé" size="sm" />
             </div>
           </div>
           <p v-if="product.description" class="text-sm mt-3">
@@ -240,9 +250,21 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
               Ajouter
             </UButton>
           </div>
-          <p v-if="product.rating && total <= product.low_threshold" class="text-sm text-warning flex items-center gap-1">
+          <p v-if="(product.rating || product.reorder) && total <= product.low_threshold" class="text-sm text-warning flex items-center gap-1">
             <UIcon name="i-lucide-triangle-alert" /> {{ total <= 0 ? 'En rupture' : 'Bientôt en rupture' }} (seuil : {{ formatQuantity(product.low_threshold, product.unit) }})
           </p>
+          <div v-if="toOrder" class="flex items-center gap-2 p-3 rounded-xl border" :class="ordered ? 'border-default' : 'border-warning/50 bg-warning/5'">
+            <UIcon :name="ordered ? 'i-lucide-truck' : 'i-lucide-shopping-cart'" class="size-5 shrink-0" :class="ordered ? 'text-muted' : 'text-warning'" />
+            <p class="text-sm flex-1">
+              {{ ordered ? `Commandé le ${formatDate(toDateKey(new Date(product.ordered_at!)))}` : 'À commander' }}
+            </p>
+            <UButton v-if="ordered" size="sm" color="neutral" variant="ghost" icon="i-lucide-undo-2" @click="setOrdered(false)">
+              Annuler
+            </UButton>
+            <UButton v-else size="sm" color="neutral" variant="soft" icon="i-lucide-check" @click="setOrdered(true)">
+              Commandé
+            </UButton>
+          </div>
           <div v-for="lot in activeLots" :key="lot.item.id" class="p-3 rounded-xl border border-default bg-elevated/40 space-y-2">
             <div class="flex items-start gap-2">
               <div class="flex-1 min-w-0">
@@ -353,7 +375,7 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
             <UFormField label="Unité">
               <USelect v-model="form.unit" :items="unitItems" class="w-full" />
             </UFormField>
-            <UFormField label="Alerte rupture sous" help="Pour les favoris">
+            <UFormField label="Alerte rupture sous" help="Favoris et produits à commander">
               <UInputNumber v-model="form.low_threshold" :min="0" :step-snapping="false" class="w-full" />
             </UFormField>
           </div>

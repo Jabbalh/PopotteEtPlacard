@@ -64,6 +64,10 @@ export interface Product extends SyncFields, Timestamps {
   rating: number
   /** seuil « proche de la rupture » */
   low_threshold: number
+  /** à recommander quand il est épuisé (liste « À commander ») */
+  reorder: boolean
+  /** marqué « commandé » ; ne compte plus dès qu'un lot est ajouté après cette date */
+  ordered_at: string | null
 }
 
 export interface StockItem extends SyncFields, Timestamps {
@@ -183,6 +187,11 @@ export function openDb(userId: string): AppDb {
       profiles: 'id',
       meta: 'key'
     })
+    // produits à commander : valeurs par défaut des lignes existantes (colonne non nulle côté serveur)
+    db.version(2).stores({}).upgrade(tx => tx.table('products').toCollection().modify((p: Partial<Product>) => {
+      p.reorder ??= false
+      p.ordered_at ??= null
+    }))
     instances.set(userId, db)
   }
   return db

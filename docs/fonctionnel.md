@@ -2,7 +2,7 @@
 
 Popotte & Placard gère le stock alimentaire d'un foyer (frigo, congélateur, placards…), les goûts de chaque personne et propose des idées de recettes à partir du stock et des dates de péremption.
 
-L'application est une PWA : elle s'installe sur l'écran d'accueil et fonctionne hors connexion. Elle est conçue d'abord pour le mobile et s'adapte à la tablette et au PC (voir § 14).
+L'application est une PWA : elle s'installe sur l'écran d'accueil et fonctionne hors connexion. Elle est conçue d'abord pour le mobile et s'adapte à la tablette et au PC (voir § 15).
 
 ## Sommaire
 
@@ -16,11 +16,12 @@ L'application est une PWA : elle s'installe sur l'écran d'accueil et fonctionne
 8. [Ajout d'un produit](#8-ajout-dun-produit)
 9. [Sortie de stock et corrections](#9-sortie-de-stock-et-corrections)
 10. [Idées (recherches)](#10-idées-recherches)
-11. [Bilan](#11-bilan)
-12. [Réglages du foyer](#12-réglages-du-foyer)
-13. [Hors connexion](#13-hors-connexion)
-14. [Affichage mobile, tablette et PC](#14-affichage-mobile-tablette-et-pc)
-15. [Plan des écrans](#15-plan-des-écrans)
+11. [À commander](#11-à-commander)
+12. [Bilan](#12-bilan)
+13. [Réglages du foyer](#13-réglages-du-foyer)
+14. [Hors connexion](#14-hors-connexion)
+15. [Affichage mobile, tablette et PC](#15-affichage-mobile-tablette-et-pc)
+16. [Plan des écrans](#16-plan-des-écrans)
 
 ---
 
@@ -173,16 +174,17 @@ Règles :
 
 - Informations : photo, marque, Nutri-Score, type, code-barres, description, composition.
 - **Note de favori** (0 à 5 étoiles), enregistrée immédiatement.
+- **À commander quand épuisé** (interrupteur, enregistré immédiatement) ; sous le seuil, encart *À commander* avec le bouton *Commandé* (voir § 11).
 - **Préférences du foyer** : les personnes qui ont une préférence sur cet aliment, avec la préférence telle qu'elle l'a saisie (ex. « Nutella »), son niveau, et son origine (goût du compte ou propre au foyer). Allergies et aversions d'abord. Rapprochement par code-barres (icône), sinon par le nom. Toucher une ligne ouvre la fiche de la personne.
 - **Lots en stock** : quantité restante (et initiale), rangement, date d'achat, péremption ; actions *Retirer* et *Modifier / corriger*.
-- **Alerte rupture** pour un favori dont le stock est sous le seuil.
+- **Alerte rupture** pour un favori ou un produit à commander dont le stock est sous le seuil.
 - **Historique** des sorties (type, quantité, recette, date, auteur, note), chaque sortie pouvant être annulée.
-- **Modifier le produit** : nom, marque, description, composition, Nutri-Score, type, unité, seuil d'alerte rupture.
+- **Modifier le produit** : nom, marque, description, composition, Nutri-Score, type, unité, seuil d'alerte rupture (favoris et produits à commander).
 - **Supprimer le produit** (annulable).
 
 ## 8. Ajout d'un produit
 
-La popin s'ouvre depuis le stock, la fiche produit (ajout d'un lot) ou le bilan (racheter un favori).
+La popin s'ouvre depuis le stock, la fiche produit (ajout d'un lot), le bilan (racheter un favori) ou *À commander*.
 
 ### Scan
 
@@ -200,6 +202,7 @@ La popin s'ouvre depuis le stock, la fiche produit (ajout d'un lot) ou le bilan 
 | Nom du produit | ✅ | Open Food Facts |
 | Marque, description, composition, Nutri-Score | | Open Food Facts (section dépliable) |
 | Aliment favori (étoiles) | | 0 (non favori) |
+| À commander quand épuisé | | Non |
 | Quantité | ✅ (> 0) | 1 |
 | Unité | | pièce (g, kg, ml, cl, L, paquet, boîte, bouteille, pot, sachet, tranche) |
 | Date d'achat | | Aujourd'hui |
@@ -282,14 +285,31 @@ Recettes utilisant des aliments qui périment dans les 14 jours, classées par u
 
 Tous les lots avec une date de péremption, du plus proche au plus lointain, avec les avis des personnes (adore, n'aime pas…). Bouton **−** : sortie de ce seul aliment.
 
-## 11. Bilan
+## 11. À commander
+
+Écran *Courses* (navigation du foyer).
+
+Un produit peut être marqué **« À commander quand épuisé »** : interrupteur sur la fiche produit (enregistré immédiatement) ou dans la popin d'ajout. Il apparaît alors dans cet écran dès que son stock est inférieur ou égal à son seuil d'alerte (1 par défaut, modifiable dans *Modifier le produit* ; 0 pour ne le voir qu'une fois épuisé).
+
+- Deux groupes : **En rupture** (plus rien) puis **Bientôt épuisés** (*Reste X*).
+- Bouton **✓ Commandé** : le produit reste dans la liste, barré, avec *Commandé le <date>*, pour éviter de le commander deux fois. Annulable (bouton ↶).
+- Le statut « commandé » disparaît de lui-même dès qu'un lot du produit est ajouté au stock après la commande.
+- Bouton **+** : ajouter un lot (popin d'ajout sur ce produit).
+- **Partager** : la liste des produits non encore commandés (nom et marque), par le partage natif du téléphone ou copiée dans le presse-papiers.
+- Toucher un produit ouvre sa fiche.
+
+Sur la fiche produit, un encart *À commander* / *Commandé le …* propose les mêmes actions.
+
+Indépendant des **Favoris à racheter** du bilan (fondés sur les étoiles).
+
+## 12. Bilan
 
 - **Chiffres clés** : produits en stock, lots périmant sous 3 jours, lots périmés.
 - **Favoris à racheter** : produits notés d'au moins une étoile dont le stock est inférieur ou égal au seuil d'alerte (1 par défaut). *Rupture* si plus rien, sinon *Reste X*. Bouton **+** pour racheter.
 - **Par rangement** : nombre de produits et de lots, périmés, à consommer vite, répartition par type d'aliment. Toucher un rangement ouvre le stock filtré.
 - **30 derniers jours** : nombre de sorties utilisées, jetées, offertes.
 
-## 12. Réglages du foyer
+## 13. Réglages du foyer
 
 - **Nom du foyer**.
 - **Rangements** (icône + libellé) et **types d'aliments** :
@@ -298,7 +318,7 @@ Tous les lots avec une date de péremption, du plus proche au plus lointain, ave
   - le nombre d'utilisations est affiché.
 - **Zone sensible** : *Supprimer le foyer* (propriétaire : stock, personnes et goûts du foyer supprimés pour tous ; les goûts de compte sont conservés) ou *Quitter le foyer* (membre).
 
-## 13. Hors connexion
+## 14. Hors connexion
 
 | Fonction | Hors connexion |
 |---|---|
@@ -315,12 +335,12 @@ L'icône nuage de l'en-tête indique l'état : à jour, envoi en attente (nombre
 
 Quand une nouvelle version est disponible, un bandeau propose de mettre à jour (rechargement), pour ne pas perdre une saisie en cours.
 
-## 14. Affichage mobile, tablette et PC
+## 15. Affichage mobile, tablette et PC
 
 | | Mobile (< 768 px) | Tablette (768 à 1023 px) | PC (≥ 1024 px) |
 |---|---|---|---|
-| Navigation du foyer | Barre en bas (Stock, Idées, Bilan, Personnes, Réglages) | Barre en bas | Barre latérale à gauche, avec le nom du foyer et un retour à *Mes foyers* |
-| Listes (foyers, stock, personnes, recettes, aliments à consommer) | 1 colonne | 2 colonnes | 2 colonnes (personnes : 3 sur grand écran) |
+| Navigation du foyer | Barre en bas (Stock, Idées, Courses, Bilan, Personnes, Réglages) | Barre en bas | Barre latérale à gauche, avec le nom du foyer et un retour à *Mes foyers* |
+| Listes (foyers, stock, à commander, personnes, recettes, aliments à consommer) | 1 colonne | 2 colonnes | 2 colonnes (personnes : 3 sur grand écran) |
 | Filtres de rangement du stock | Défilement horizontal | Passage à la ligne | Passage à la ligne |
 | Ajout au stock | Boutons flottants *+ Manuel* / *Scanner* | Boutons flottants | Boutons dans l'en-tête de la page |
 | Fiche produit | 1 colonne | 1 colonne | Informations et préférences du foyer à gauche (restent visibles au défilement), lots et historique à droite |
@@ -331,7 +351,7 @@ Quand une nouvelle version est disponible, un bandeau propose de mettre à jour 
 
 L'affichage mobile est la référence : les écrans plus larges réorganisent les mêmes éléments, sans fonction en plus ou en moins. Les popins (ajout, sortie de stock, recette…) sont identiques sur tous les écrans.
 
-## 15. Plan des écrans
+## 16. Plan des écrans
 
 | Route | Écran |
 |---|---|
@@ -346,6 +366,7 @@ L'affichage mobile est la référence : les écrans plus larges réorganisent le
 | `/foyer/<id>` | Stock |
 | `/foyer/<id>/produit/<id>` | Fiche produit |
 | `/foyer/<id>/idees` | Idées |
+| `/foyer/<id>/courses` | À commander |
 | `/foyer/<id>/bilan` | Bilan |
 | `/foyer/<id>/personnes` | Personnes |
 | `/foyer/<id>/personnes/<id>` | Fiche d'une personne |

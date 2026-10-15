@@ -51,7 +51,7 @@ const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
   },
   products: {
     remote: 'pp_products',
-    fields: ['id', 'household_id', 'barcode', 'name', 'brand', 'description', 'ingredients', 'nutriscore', 'image_url', 'food_type_id', 'unit', 'rating', 'low_threshold', 'created_at', 'deleted_at'],
+    fields: ['id', 'household_id', 'barcode', 'name', 'brand', 'description', 'ingredients', 'nutriscore', 'image_url', 'food_type_id', 'unit', 'rating', 'low_threshold', 'reorder', 'ordered_at', 'created_at', 'deleted_at'],
     byHousehold: true,
     byUser: false
   },

@@ -90,12 +90,35 @@ export function useStock(householdId: Ref<string>) {
     return [...map.values()]
   })
 
+  /** Date du dernier lot ajouté, par produit (lots épuisés compris) */
+  const lastAddedByProduct = computed(() => {
+    const map = new Map<string, string>()
+    for (const l of allLots.value) {
+      const prev = map.get(l.product.id)
+      if (!prev || l.item.created_at > prev) map.set(l.product.id, l.item.created_at)
+    }
+    return map
+  })
+
+  /** Commandé et pas encore réapprovisionné (aucun lot ajouté depuis la commande) */
+  function isOrdered(p: Product) {
+    if (!p.ordered_at) return false
+    const last = lastAddedByProduct.value.get(p.id)
+    return !last || last < p.ordered_at
+  }
+
+  /** Produits « à commander » épuisés ou sous leur seuil d'alerte : rupture d'abord, puis non commandés */
+  const toOrder = computed(() => byProduct.value
+    .filter(s => s.product.reorder && s.total <= s.product.low_threshold)
+    .map(s => ({ ...s, ordered: isOrdered(s.product) }))
+    .sort((a, b) => Number(a.total > 0) - Number(b.total > 0) || Number(a.ordered) - Number(b.ordered) || a.product.name.localeCompare(b.product.name)))
+
   function movementsOf(itemIds: string[]) {
     const set = new Set(itemIds)
     return movements.value.filter(m => set.has(m.stock_item_id)).sort((a, b) => b.occurred_on.localeCompare(a.occurred_on) || b.created_at.localeCompare(a.created_at))
   }
 
-  return { loading, products, productById, allLots, lots, byProduct, movementsOf }
+  return { loading, products, productById, allLots, lots, byProduct, toOrder, isOrdered, movementsOf }
 }
 
 /** Préférences et recettes d'une personne : celles de son compte (si lié) + celles du foyer */

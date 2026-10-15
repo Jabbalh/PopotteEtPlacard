@@ -8,6 +8,7 @@ Migrations de l'application (dans l'ordre, dans le SQL Editor, **après** celles
 |---|---|
 | [`20261014100000_popotte_init.sql`](../supabase/migrations/20261014100000_popotte_init.sql) | Schéma initial |
 | [`20261015000000_preferences_barcode.sql`](../supabase/migrations/20261015000000_preferences_barcode.sql) | Code-barres des préférences d'aliments |
+| [`20261015120000_products_reorder.sql`](../supabase/migrations/20261015120000_products_reorder.sql) | Produits à commander (`reorder`, `ordered_at`) |
 
 Une migration qui ajoute une colonne synchronisée doit être exécutée **avant** le déploiement de l'application qui l'utilise.
 
@@ -91,6 +92,8 @@ erDiagram
         smallint rating "0..5"
         numeric low_threshold
         text unit
+        boolean reorder
+        timestamptz ordered_at
     }
     pp_stock_items {
         uuid id PK
@@ -195,7 +198,9 @@ Identique à `pp_locations`, sans `icon`.
 | `food_type_id` | uuid | → `pp_food_types` on delete set null | |
 | `unit` | text | not null, défaut `pièce` | Unité de toutes les quantités du produit |
 | `rating` | smallint | 0 à 5, défaut 0 | 0 = non favori |
-| `low_threshold` | numeric | ≥ 0, défaut 1 | Seuil « bientôt en rupture » |
+| `low_threshold` | numeric | ≥ 0, défaut 1 | Seuil « bientôt en rupture » (favoris et produits à commander) |
+| `reorder` | boolean | not null, défaut `false` | À commander quand épuisé (écran *À commander*) |
+| `ordered_at` | timestamptz | | Marqué « commandé » ; sans effet dès qu'un lot du produit est créé après cette date |
 
 Index : `(household_id, updated_at)`, `(household_id, barcode)` partiel.
 

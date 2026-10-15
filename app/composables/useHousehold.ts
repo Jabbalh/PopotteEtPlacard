@@ -46,6 +46,8 @@ export interface ProductInput {
   unit?: string
   rating?: number
   low_threshold?: number
+  reorder?: boolean
+  ordered_at?: string | null
 }
 
 export interface StockItemInput {
@@ -159,7 +161,9 @@ export function useHouseholdActions() {
       food_type_id: input.food_type_id ?? null,
       unit: input.unit ?? 'pièce',
       rating: input.rating ?? 0,
-      low_threshold: input.low_threshold ?? 1
+      low_threshold: input.low_threshold ?? 1,
+      reorder: input.reorder ?? false,
+      ordered_at: null
     }
     await db.products.add(product)
     schedule()

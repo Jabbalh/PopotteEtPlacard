@@ -22,6 +22,7 @@ const navItems = computed(() => {
   return [
     { label: 'Stock', icon: 'i-lucide-refrigerator', to: base, exact: true, also: `${base}/produit` },
     { label: 'Idées', icon: 'i-lucide-chef-hat', to: `${base}/idees` },
+    { label: 'Courses', icon: 'i-lucide-shopping-cart', to: `${base}/courses` },
     { label: 'Bilan', icon: 'i-lucide-clipboard-list', to: `${base}/bilan` },
     { label: 'Personnes', icon: 'i-lucide-users', to: `${base}/personnes` },
     { label: 'Réglages', icon: 'i-lucide-settings', to: `${base}/reglages` }
@@ -105,7 +106,7 @@ const userMenu = computed<DropdownMenuItem[][]>(() => [
       v-if="navItems.length"
       class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-default/90 backdrop-blur border-t border-default pb-[env(safe-area-inset-bottom)]"
     >
-      <div class="max-w-2xl md:max-w-4xl mx-auto grid grid-cols-5">
+      <div class="max-w-2xl md:max-w-4xl mx-auto grid grid-cols-6">
         <NuxtLink
           v-for="item in navItems"
           :key="item.to"

@@ -73,7 +73,7 @@ app/
 │   ├── useDb.ts                    base de l'utilisateur, useLiveQuery
 │   ├── useSync.ts                  synchronisation IndexedDB <-> Supabase
 │   ├── useHousehold.ts             actions d'écriture + foyer, personnes, rangements, types
-│   ├── useStock.ts                 lots, restants, stock par produit, goûts par personne
+│   ├── useStock.ts                 lots, restants, stock par produit, à commander, goûts par personne
 │   ├── useSuggestions.ts           idées de recettes et d'aliments
 │   └── useCatalog.ts               aliments proposés à la saisie des préférences, recherche par code-barres
 ├── utils/
@@ -93,7 +93,7 @@ app/
 │   ├── StarRating.vue, NutriscoreBadge.vue
 │   ├── SyncStatus.vue              état de la synchro (en-tête)
 │   └── PwaPrompts.vue              mise à jour, installation
-└── pages/                          voir docs/fonctionnel.md § 15
+└── pages/                          voir docs/fonctionnel.md § 16
 supabase/migrations/                migration SQL de l'application
 public/                             icônes PWA (générées depuis icon.svg)
 ```
@@ -133,6 +133,11 @@ Champs techniques de chaque ligne synchronisée :
 **Lecture réactive** : `useLiveQuery(query, initial, deps)` enveloppe `liveQuery` de Dexie. Le résultat se met à jour à chaque écriture locale, y compris celles de la synchro. Les lignes supprimées (`deleted_at`) restent en local et sont filtrées par les requêtes.
 
 Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` dans `utils/db.ts` (avec `.upgrade()` si besoin), sans modifier les versions existantes.
+
+| Version | Changement |
+|---|---|
+| 1 | Schéma initial |
+| 2 | `products.reorder = false`, `products.ordered_at = null` sur les lignes existantes (la synchro envoie `null` pour un champ absent, refusé par `reorder not null`) |
 
 ## 6. Synchronisation
 
@@ -178,6 +183,7 @@ Une ligne reçue n'écrase **jamais** une ligne locale `_dirty`. Le recouvrement
 - `lots` : lots dont le restant est > 0, triés par `expires_on` croissant (sans date en dernier).
 - `byProduct` : tous les produits non supprimés avec total, lots et péremption la plus proche (sert aux ruptures).
 - Un ajustement d'inventaire crée un mouvement `adjusted` de quantité `restant actuel − restant voulu` (négatif = ajout).
+- `toOrder` : produits `reorder` dont le total est ≤ `low_threshold`, rupture d'abord puis non commandés. `isOrdered(p)` : `ordered_at` renseigné et postérieur au `created_at` du dernier lot du produit (lots épuisés compris) ; ajouter un lot suffit donc à lever le statut, sans écriture supplémentaire.
 
 ### Goûts (`useHouseholdTastes`)
 

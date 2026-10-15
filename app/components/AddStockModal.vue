@@ -40,6 +40,7 @@ function emptyForm() {
     nutriscore: null as Nutriscore | null,
     image_url: null as string | null,
     rating: 0,
+    reorder: false,
     unit: 'pièce',
     food_type_id: undefined as string | undefined,
     quantity: 1 as number | null,
@@ -81,6 +82,7 @@ function useExisting(p: Product) {
   existing.value = p
   form.name = p.name
   form.rating = p.rating
+  form.reorder = p.reorder
   form.unit = p.unit
   form.food_type_id = p.food_type_id ?? undefined
   form.barcode = p.barcode ?? ''
@@ -148,6 +150,7 @@ async function save() {
       const changes: Partial<Product> = {}
       if ((form.food_type_id ?? null) !== product.food_type_id) changes.food_type_id = form.food_type_id ?? null
       if (form.rating !== product.rating) changes.rating = form.rating
+      if (form.reorder !== product.reorder) changes.reorder = form.reorder
       if (Object.keys(changes).length) await updateProduct(product.id, changes)
     } else {
       product = await addProduct(props.householdId, {
@@ -160,7 +163,8 @@ async function save() {
         image_url: form.image_url,
         food_type_id: form.food_type_id ?? null,
         unit: form.unit,
-        rating: form.rating
+        rating: form.rating,
+        reorder: form.reorder
       })
     }
     await addStockItem(props.householdId, {
@@ -295,6 +299,7 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
           <UFormField label="Aliment favori">
             <StarRating v-model="form.rating" />
           </UFormField>
+          <USwitch v-model="form.reorder" label="À commander quand épuisé" />
 
           <!-- Lot -->
           <div class="grid grid-cols-2 gap-3">
