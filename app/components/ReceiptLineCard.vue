@@ -77,13 +77,13 @@ function saveNewName() {
 }
 
 const quantity = computed({
-  get: () => line.value.quantity,
+  get: () => Number(line.value.quantity),
   set: (v: number | null) => update({ quantity: v ?? 0 })
 })
 
 /** prix total de la ligne (lu sur le ticket, modifiable, facultatif) */
 const price = computed({
-  get: () => line.value.price,
+  get: () => (line.value.price === null ? null : Number(line.value.price)),
   set: (v: number | null) => update({ price: v ?? null })
 })
 /** prix unitaire, si la quantité n'est pas 1 (ex. 3 yaourts, article pesé) */
@@ -115,7 +115,7 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
           {{ line.label }}
         </p>
         <p v-if="line.ignored && line.price !== null" class="text-xs text-muted">
-          {{ formatPrice(line.price) }}
+          {{ formatPrice(Number(line.price)) }}
         </p>
       </div>
       <UButton

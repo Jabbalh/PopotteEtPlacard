@@ -214,7 +214,10 @@ async function validate() {
     const r = await receipt.validate()
     toast.add({
       title: `${r.added} produit${r.added > 1 ? 's' : ''} ajouté${r.added > 1 ? 's' : ''} au stock`,
-      description: counts.value.todo ? `${counts.value.todo} ligne${counts.value.todo > 1 ? 's' : ''} reste${counts.value.todo > 1 ? 'nt' : ''} à compléter.` : undefined,
+      description: [
+        r.skipped ? `${plural(r.skipped, 'ligne')} déjà ajoutée${r.skipped > 1 ? 's' : ''} par un autre membre du foyer.` : '',
+        counts.value.todo ? `${plural(counts.value.todo, 'ligne')} reste${counts.value.todo > 1 ? 'nt' : ''} à compléter.` : ''
+      ].filter(Boolean).join(' ') || undefined,
       icon: 'i-lucide-check',
       color: 'success'
     })
@@ -310,7 +313,7 @@ async function clearAll() {
         </UButton>
       </div>
       <p class="text-xs text-muted -mt-2">
-        Liste enregistrée sur cet appareil : vous pouvez la compléter plus tard. Les lignes prêtes partent au stock, les autres restent ici.
+        Liste partagée avec le foyer : vous ou un autre membre pouvez la compléter plus tard, sur n'importe quel appareil. Les lignes prêtes partent au stock, les autres restent ici.
       </p>
 
       <!-- Date d'achat (ticket saisi après coup) -->

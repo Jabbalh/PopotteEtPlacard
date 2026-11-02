@@ -61,6 +61,12 @@ const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
     byHousehold: true,
     byUser: false
   },
+  receiptLines: {
+    remote: 'pp_receipt_lines',
+    fields: ['id', 'household_id', 'position', 'label', 'quantity', 'weighed', 'price', 'purchased_on', 'product_id', 'match', 'new_product', 'ignored', 'location_id', 'expires_on', 'created_at', 'deleted_at'],
+    byHousehold: true,
+    byUser: false
+  },
   stockItems: {
     remote: 'pp_stock_items',
     fields: ['id', 'household_id', 'product_id', 'location_id', 'quantity', 'purchased_on', 'expires_on', 'price', 'note', 'created_by', 'created_at', 'deleted_at'],
@@ -118,9 +124,7 @@ async function purgeHousehold(db: AppDb, householdId: string) {
   for (const name of TABLE_NAMES) {
     await tableOf(db, name).where('household_id').equals(householdId).delete()
     await db.meta.delete(`${name}:${householdId}`)
-  }
-  await db.receiptLines.where('household_id').equals(householdId).delete()
-}
+  }}
 
 /**
  * Synchronisation bidirectionnelle IndexedDB <-> Supabase.

@@ -3,19 +3,20 @@ import type { ReceiptItem } from '~/utils/receipt'
 
 /** Quantité d'une ligne dans l'unité du produit (article pesé : kg → g si besoin) */
 export function lineQuantity(line: Pick<ReceiptLine, 'quantity' | 'weighed'>, unit: string): number {
-  if (line.weighed && unit === 'g') return Math.round(line.quantity * 1000)
-  return line.quantity
+  // Number() : une colonne numeric peut revenir du serveur sous forme de texte
+  if (line.weighed && unit === 'g') return Math.round(Number(line.quantity) * 1000)
+  return Number(line.quantity)
 }
 
 /** État d'une ligne de ticket */
 export function lineStatus(line: ReceiptLine): 'ignored' | 'ready' | 'todo' {
   if (line.ignored) return 'ignored'
-  if ((line.product_id || line.new_product?.name.trim()) && line.quantity > 0) return 'ready'
+  if ((line.product_id || line.new_product?.name.trim()) && Number(line.quantity) > 0) return 'ready'
   return 'todo'
 }
 
 /**
- * Ticket de caisse en cours d'un foyer (« stock temporaire ») : lignes en attente sur cet appareil,
+ * Ticket de caisse en cours d'un foyer (« stock temporaire ») : lignes en attente partagées par le foyer (synchronisées),
  * libellés mémorisés par le foyer, rapprochement avec les produits déjà achetés,
  * puis ajout au stock des lignes complètes.
  */
@@ -28,7 +29,8 @@ export function useReceipt(householdId: Ref<string>) {
 
   const { data: lines, loading } = useLiveQuery(
     async () => (await db.receiptLines.where('household_id').equals(householdId.value).toArray())
-      .sort((a, b) => a.position - b.position),
+      .filter(l => !l.deleted_at)
+      .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at)),
     [] as ReceiptLine[],
     [householdId]
   )
@@ -81,6 +83,7 @@ export function useReceipt(householdId: Ref<string>) {
     const start = Math.max(0, ...lines.value.map(l => l.position)) + 1
     let recognized = 0
     let guessed = 0
+    const now = new Date().toISOString()
     const rows: ReceiptLine[] = items.map((item, i) => {
       const alias = aliasByKey.value.get(receiptKey(item.label))
       let productId: string | null = null
@@ -113,10 +116,15 @@ export function useReceipt(householdId: Ref<string>) {
         ignored: !!alias && !alias.product_id,
         location_id: null,
         expires_on: null,
-        created_at: new Date().toISOString()
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+        _dirty: 1,
+        _lmod: Date.now()
       }
     })
     await db.receiptLines.bulkAdd(rows)
+    schedule()
     return { added: rows.length, recognized, guessed, ignored: rows.filter(r => r.ignored).length }
   }
 
@@ -124,12 +132,24 @@ export function useReceipt(householdId: Ref<string>) {
     return importItems([{ label: label.trim(), quantity: 1, weighed: false, price: null }], purchasedOn)
   }
 
-  const updateLine = (id: string, changes: Partial<ReceiptLine>) => db.receiptLines.update(id, changes)
-  const removeLine = (id: string) => db.receiptLines.delete(id)
-  const clear = () => db.receiptLines.where('household_id').equals(householdId.value).delete()
+  /** Lignes en attente du foyer (non supprimées) : collection Dexie à modifier */
+  const pending = () => db.receiptLines.where('household_id').equals(householdId.value).filter(l => !l.deleted_at)
+
+  async function updateLine(id: string, changes: Partial<ReceiptLine>) {
+    await db.receiptLines.update(id, { ...changes, _dirty: 1, _lmod: Date.now() })
+    schedule()
+  }
+  /** Suppression douce : propagée aux autres appareils du foyer */
+  const removeLine = (id: string) => updateLine(id, { deleted_at: new Date().toISOString() })
+  async function clear() {
+    await pending().modify({ deleted_at: new Date().toISOString(), _dirty: 1, _lmod: Date.now() })
+    schedule()
+  }
   /** Date d'achat de toutes les lignes en attente (ticket saisi après coup) */
-  const setPurchasedOn = (date: string) =>
-    db.receiptLines.where('household_id').equals(householdId.value).modify({ purchased_on: date })
+  async function setPurchasedOn(date: string) {
+    await pending().modify({ purchased_on: date, _dirty: 1, _lmod: Date.now() })
+    schedule()
+  }
 
   /** Associe un libellé à un produit (ou null = à ignorer) pour les prochains tickets */
   async function remember(label: string, productId: string | null) {
@@ -157,7 +177,19 @@ export function useReceipt(householdId: Ref<string>) {
     const ignored = lines.value.filter(l => l.ignored)
     /** nouveaux produits de même nom créés une seule fois */
     const created = new Map<string, Product>()
+    let added = 0
+    let skipped = 0
+    /** la ligne est toujours en attente (pas déjà ajoutée ou retirée sur un autre appareil) */
+    const stillPending = async (id: string) => {
+      const fresh = await db.receiptLines.get(id)
+      return !!fresh && !fresh.deleted_at
+    }
+    const done = (id: string) => db.receiptLines.update(id, { deleted_at: new Date().toISOString(), _dirty: 1, _lmod: Date.now() })
     for (const line of ready) {
+      if (!(await stillPending(line.id))) {
+        skipped++
+        continue
+      }
       let product = line.product_id ? productById.value.get(line.product_id) : undefined
       if (!product && line.new_product) {
         const np = line.new_product
@@ -176,18 +208,20 @@ export function useReceipt(householdId: Ref<string>) {
         quantity: lineQuantity(line, product.unit),
         purchased_on: line.purchased_on,
         expires_on: line.expires_on || freezer?.date || null,
-        price: line.price,
+        price: line.price === null ? null : Number(line.price),
         note: ''
       })
       await remember(line.label, product.id)
-      await db.receiptLines.delete(line.id)
+      await done(line.id)
+      added++
     }
     for (const line of ignored) {
+      if (!(await stillPending(line.id))) continue
       await remember(line.label, null)
-      await db.receiptLines.delete(line.id)
+      await done(line.id)
     }
     schedule()
-    return { added: ready.length, ignored: ignored.length }
+    return { added, skipped, ignored: ignored.length }
   }
 
   return {
@@ -201,7 +235,7 @@ export function useReceipt(householdId: Ref<string>) {
 export function usePendingReceipt(householdId: Ref<string>) {
   const db = useDb()
   const { data } = useLiveQuery(
-    () => db.receiptLines.where('household_id').equals(householdId.value).count(),
+    () => db.receiptLines.where('household_id').equals(householdId.value).filter(l => !l.deleted_at).count(),
     0,
     [householdId]
   )

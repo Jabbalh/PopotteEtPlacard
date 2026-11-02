@@ -163,10 +163,10 @@ export interface ReceiptNewProduct {
 }
 
 /**
- * Ligne d'un ticket de caisse en attente (« stock temporaire ») : locale à l'appareil,
- * jamais synchronisée ; supprimée une fois ajoutée au stock.
+ * Ligne d'un ticket de caisse en attente (« stock temporaire »), partagée par le foyer :
+ * importée sur un appareil, complétable sur un autre ; supprimée (deleted_at) une fois ajoutée au stock.
  */
-export interface ReceiptLine {
+export interface ReceiptLine extends SyncFields, Timestamps {
   id: string
   household_id: string
   position: number
@@ -186,7 +186,6 @@ export interface ReceiptLine {
   ignored: boolean
   location_id: string | null
   expires_on: string | null
-  created_at: string
 }
 
 export interface Profile {
@@ -216,7 +215,7 @@ export type AppDb = Dexie & {
 }
 
 /** Tables synchronisées, dans l'ordre d'envoi (respect des clés étrangères) */
-export const SYNCED_TABLES = ['households', 'people', 'locations', 'foodTypes', 'products', 'receiptAliases', 'stockItems', 'movements', 'preferences', 'recipes'] as const
+export const SYNCED_TABLES = ['households', 'people', 'locations', 'foodTypes', 'products', 'receiptAliases', 'receiptLines', 'stockItems', 'movements', 'preferences', 'recipes'] as const
 export type SyncedTable = typeof SYNCED_TABLES[number]
 
 const instances = new Map<string, AppDb>()
@@ -265,6 +264,15 @@ export function openDb(userId: string): AppDb {
       receiptAliases: 'id, household_id, _dirty',
       receiptLines: 'id, household_id'
     })
+    // lignes de ticket en attente synchronisées : les lignes déjà présentes sont à envoyer
+    db.version(5).stores({
+      receiptLines: 'id, household_id, _dirty'
+    }).upgrade(tx => tx.table('receiptLines').toCollection().modify((l: Partial<ReceiptLine>) => {
+      l.updated_at ??= l.created_at ?? new Date().toISOString()
+      l.deleted_at ??= null
+      l._dirty = 1
+      l._lmod = Date.now()
+    }))
     instances.set(userId, db)
   }
   return db

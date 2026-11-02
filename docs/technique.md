@@ -128,7 +128,7 @@ Une base IndexedDB **par utilisateur** : `popotte-<userId>` (`openDb(userId)`), 
 | `preferences` | `pp_preferences` | `id, user_id, household_id, person_id, _dirty` |
 | `recipes` | `pp_recipes` | `id, user_id, household_id, person_id, _dirty` |
 | `receiptAliases` | `pp_receipt_aliases` | `id, household_id, _dirty` |
-| `receiptLines` | — (locale, jamais synchronisée) | `id, household_id` |
+| `receiptLines` | `pp_receipt_lines` | `id, household_id, _dirty` |
 | `profiles` | `profiles` (lecture seule) | `id` |
 | `meta` | — | `key` (curseurs de synchro) |
 
@@ -146,6 +146,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 | 2 | `products.reorder = false`, `products.ordered_at = null` sur les lignes existantes (la synchro envoie `null` pour un champ absent, refusé par `reorder not null`) |
 | 3 | `locations.freezer` (`isFreezerLike` : icône flocon ou libellé « Congélateur… ») et `foodTypes.freezer_months` (`FREEZER_MONTHS` par libellé) sur les lignes existantes — même règle que la migration serveur, pour qu'une ligne locale non envoyée n'écrase pas la valeur serveur |
 | 4 | Tables `receiptAliases` (synchronisée) et `receiptLines` (ticket en attente, locale ; purgée avec son foyer) |
+| 5 | `receiptLines` synchronisée (index `_dirty`) : les lignes en attente existantes reçoivent `updated_at`, `deleted_at = null` et sont marquées à envoyer |
 
 ## 6. Synchronisation
 
@@ -160,7 +161,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 ### Envoi (push)
 
 1. `households` : upsert unitaire. `deleted_at` n'est envoyé que si l'utilisateur est propriétaire (sinon refus serveur).
-2. Puis, dans l'ordre des clés étrangères : `people`, `locations`, `foodTypes`, `products`, `receiptAliases`, `stockItems`, `movements`, `preferences`, `recipes`, par lots de 100, en **upsert** des colonnes déclarées dans `TABLES[...].fields`.
+2. Puis, dans l'ordre des clés étrangères : `people`, `locations`, `foodTypes`, `products`, `receiptAliases`, `receiptLines`, `stockItems`, `movements`, `preferences`, `recipes`, par lots de 100, en **upsert** des colonnes déclarées dans `TABLES[...].fields`.
 3. Lot refusé pour droits (`42501`, `PGRST301`) : renvoi ligne par ligne pour isoler la ligne fautive, qui est journalisée puis marquée propre (ex. foyer quitté entre-temps). Toute autre erreur interrompt la synchro (`lastError`).
 
 **Cas particulier `people`** : `user_id`, `role` et `invite_token` ne sont **jamais** envoyés, sauf `user_id` + `role` pour la personne du créateur d'un foyer (création hors ligne). Le lien personne ↔ compte est protégé côté serveur (voir [base-de-donnees.md § Règles](base-de-donnees.md#5-règles-métier-triggers)).
@@ -242,6 +243,7 @@ Pour chaque personne non supprimée du foyer : goûts de son compte (`user_id = 
 - `suggestProducts(libellé, produits, alias)` : mots du ticket (`tokens` de `matching.ts`, sans contenances ni nombres, `1/2` → `demi`) comparés aux mots du **nom** du produit, la **marque** pouvant expliquer un mot ; un mot correspond s'il est identique ou si l'un est le préfixe de l'autre (≥ 3 lettres : « ecr » → « ecreme »). Score = 0,6 × part des mots du ticket trouvés + 0,3 × part des mots du nom couverts + 0,1 si les premiers mots correspondent ; maximum avec le même calcul contre les autres libellés associés au produit. Seuil d'affichage 0,35.
 - Import (`importItems`) : libellé mémorisé → produit (`match = 'alias'`) ou ligne ignorée (`product_id` null) ; sinon présélection (`'guess'`) si le meilleur score ≥ `STRONG_MATCH` (0,8) avec 0,15 d'avance sur le second.
 - Validation (`validate`) : pour chaque ligne prête, produit créé si besoin (un seul par nom / code-barres), lot (`lineQuantity` : kg → g si l'unité du produit est `g` ; rangement = choisi, sinon celui du dernier lot du produit, sinon le premier ; péremption = saisie, sinon date limite congélateur), puis `remember(libellé, produit)`. Les lignes ignorées sont mémorisées avec `product_id = null`. Plusieurs associations pour une même clé (deux appareils) : la plus récente (`updated_at`) l'emporte.
+- Lignes en attente synchronisées (`pp_receipt_lines`) : toutes les écritures (`updateLine`, `removeLine`, `clear`, `setPurchasedOn`, import) posent `_dirty` / `_lmod` puis `schedule()` ; retrait, effacement et ajout au stock = `deleted_at` (suppression douce, propagée aux autres appareils). Avant d'ajouter une ligne, `validate` la relit dans Dexie et la saute si elle a été supprimée entre-temps (ajoutée par un autre membre et reçue par la synchro) : `skipped` dans le résultat. Deux validations simultanées avant toute synchro créeraient encore deux lots (fenêtre de quelques secondes, corrigeable par *Supprimer ce lot*).
 
 ### Écritures (`useHouseholdActions`)
 

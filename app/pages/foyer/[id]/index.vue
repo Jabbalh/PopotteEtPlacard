@@ -140,7 +140,7 @@ function take(row: Row) {
       </UButton>
     </div>
 
-    <!-- Ticket de caisse en cours de saisie sur cet appareil -->
+    <!-- Ticket de caisse en cours de saisie dans le foyer -->
     <UAlert
       v-if="pendingLines"
       icon="i-lucide-receipt"

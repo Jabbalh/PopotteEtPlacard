@@ -157,7 +157,7 @@ Règles :
   - préférences des personnes du foyer : un badge par personne (prénom, couleur et icône du niveau), avec sa préférence la plus forte, allergies et aversions d'abord, 3 au maximum puis « +N » ; le survol affiche la préférence saisie. Le détail complet est sur la fiche produit.
 - Bouton **−** en bout de ligne : *Retirer du stock* (le lot le plus urgent est présélectionné). Toucher le reste de la ligne ouvre la fiche produit.
 - Boutons d'ajout **Scanner** (ouvre la caméra), **+ Manuel** (saisie libre) et **Ticket** (ticket de caisse, § 8) : flottants en bas à droite sur mobile et tablette, dans l'en-tête de la page sur PC.
-- Un ticket de caisse en cours de saisie sur l'appareil est signalé en haut de la liste (*Continuer*).
+- Un ticket de caisse en cours de saisie dans le foyer est signalé en haut de la liste (*Continuer*), sur tous les appareils.
 
 ### Badges de péremption
 
@@ -251,7 +251,7 @@ Durées proposées à la création d'un foyer (modifiables) :
 
 **Liste en attente (« stock temporaire »)**
 
-Les articles forment une liste enregistrée **sur l'appareil** : on peut la compléter plus tard (le stock signale un ticket en cours). Pour chaque ligne :
+Les articles forment une liste **partagée par le foyer** : un membre peut importer le ticket et un autre le compléter plus tard, sur un autre appareil (le stock signale un ticket en cours). Si deux membres ajoutent la même ligne au stock en même temps, le second la saute dès que la synchronisation lui a appris qu'elle était déjà ajoutée (message « déjà ajoutée par un autre membre »). Pour chaque ligne :
 
 | État | Signification |
 |---|---|
