@@ -233,6 +233,7 @@ function openRecipe(r: Recipe | null) {
               <p class="font-medium truncate">
                 {{ r.name }}
                 <UIcon v-if="r.fromAccount && !editableAccount" name="i-lucide-link" class="size-3 text-muted" />
+                <StarRating v-if="r.rating" :model-value="Number(r.rating)" readonly size="sm" class="ml-1 align-middle" />
               </p>
               <p class="text-xs text-muted truncate">
                 {{ r.ingredients.length ? r.ingredients.map(i => i.name).join(', ') : r.instructions || 'Texte libre' }}

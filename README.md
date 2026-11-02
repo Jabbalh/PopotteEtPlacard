@@ -22,7 +22,7 @@ Le stock alimentaire du foyer (frigo, congélateur, placards…), les goûts de 
 - **Historique des prix** : prix payé facultatif sur chaque lot (repris du ticket de caisse, ou saisi) ; la fiche produit liste les achats avec prix unitaire, dernier prix, prix le plus bas et moyenne.
 - **Sortie de stock** : utilisé, jeté ou offert, quantité ou totalité, date modifiable, annulable. **Correction d'inventaire** possible à tout moment (fiche produit → *Modifier / corriger*).
 - **Idées** :
-  - recettes du foyer réalisables avec le stock (les plus complètes d'abord, puis les plus appréciées) ;
+  - recettes réalisables avec le stock (les plus complètes d'abord, puis les mieux notées et les plus appréciées) : recettes préférées des personnes et **recettes communes du foyer** (bouton *Recettes du foyer*) ; chaque recette peut être notée de 1 à 5 étoiles ;
   - recettes « anti-gaspi » utilisant les aliments qui périment bientôt ;
   - aliments à consommer, par date de péremption croissante.
   - Sur une recette : *Je la cuisine* liste les aliments correspondants avec la quantité à retirer ; sur un aliment : seul celui-ci est proposé. Les allergies et aversions des personnes sont signalées.

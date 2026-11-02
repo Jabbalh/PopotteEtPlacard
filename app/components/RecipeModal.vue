@@ -2,7 +2,7 @@
 import type { Ingredient, Recipe } from '~/utils/db'
 import type { TasteOwner } from '~/composables/useHousehold'
 
-/** Création / modification d'une recette : liste d'aliments et/ou texte libre */
+/** Création / modification d'une recette : liste d'aliments et/ou texte libre, note (étoiles) */
 const props = defineProps<{
   owner: TasteOwner
   recipe?: Recipe | null
@@ -14,13 +14,16 @@ const open = defineModel<boolean>('open', { default: false })
 const toast = useToast()
 const { saveRecipe, deleteRecipe, restoreRecipe } = useHouseholdActions()
 
-const form = reactive({ name: '', instructions: '', ingredients: [] as Ingredient[] })
+const form = reactive({ name: '', instructions: '', ingredients: [] as Ingredient[], rating: 0 })
+/** recette commune du foyer (rattachée à aucune personne) */
+const isCommon = computed(() => !('userId' in props.owner) && !('personId' in props.owner))
 const listId = `ingredients-${Math.random().toString(36).slice(2)}`
 
 watch(open, (o) => {
   if (!o) return
   form.name = props.recipe?.name ?? ''
   form.instructions = props.recipe?.instructions ?? ''
+  form.rating = Number(props.recipe?.rating ?? 0)
   form.ingredients = props.recipe?.ingredients.map(i => ({ ...i })) ?? []
   if (!form.ingredients.length) addIngredient()
 }, { immediate: true })
@@ -31,7 +34,7 @@ function addIngredient() {
 
 async function save() {
   if (!form.name.trim()) return
-  await saveRecipe(props.owner, { id: props.recipe?.id, name: form.name, ingredients: form.ingredients, instructions: form.instructions.trim() })
+  await saveRecipe(props.owner, { id: props.recipe?.id, name: form.name, ingredients: form.ingredients, instructions: form.instructions.trim(), rating: form.rating })
   open.value = false
   toast.add({ title: 'Recette enregistrée', icon: 'i-lucide-check', color: 'success', duration: 2000 })
 }
@@ -48,11 +51,19 @@ async function remove() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="recipe ? 'Modifier la recette' : 'Nouvelle recette'" :ui="{ content: 'max-h-[92dvh]', body: 'overflow-y-auto' }">
+  <UModal
+    v-model:open="open"
+    :title="recipe ? 'Modifier la recette' : isCommon ? 'Nouvelle recette du foyer' : 'Nouvelle recette'"
+    :ui="{ content: 'max-h-[92dvh]', body: 'overflow-y-auto' }"
+  >
     <template #body>
       <form :id="`${listId}-form`" class="space-y-4" @submit.prevent="save">
         <UFormField label="Nom de la recette" required>
           <UInput v-model="form.name" size="lg" class="w-full" required placeholder="ex. Gratin dauphinois" />
+        </UFormField>
+
+        <UFormField label="Note" help="Les recettes les mieux notées sont proposées en premier dans les idées.">
+          <StarRating v-model="form.rating" />
         </UFormField>
 
         <UFormField label="Aliments" help="Servent à proposer la recette selon le stock. Quantité et unité facultatives.">

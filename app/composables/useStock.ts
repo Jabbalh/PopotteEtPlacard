@@ -162,6 +162,19 @@ export function useHouseholdTastes(householdId: Ref<string>) {
   return { tastes: data }
 }
 
+/** Recettes communes du foyer (rattachées au foyer, sans personne), triées par nom */
+export function useHouseholdRecipes(householdId: Ref<string>) {
+  const db = useDb()
+  const { data } = useLiveQuery(
+    async () => (await db.recipes.where('household_id').equals(householdId.value).toArray())
+      .filter(r => !r.person_id && !r.user_id && !r.deleted_at)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [] as Recipe[],
+    [householdId]
+  )
+  return { householdRecipes: data, owner: computed<TasteOwner>(() => ({ householdId: householdId.value })) }
+}
+
 /** Mes préférences et recettes de niveau compte */
 export function useMyTastes() {
   const db = useDb()

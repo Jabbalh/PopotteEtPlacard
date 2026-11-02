@@ -24,12 +24,16 @@ function dirty() {
 }
 
 /** Propriétaire d'une préférence ou d'une recette : mon compte, ou une personne d'un foyer */
-export type TasteOwner = { userId: string } | { personId: string, householdId: string }
+/**
+ * Propriétaire d'une préférence ou d'une recette : mon compte, une personne d'un foyer,
+ * ou le foyer lui-même (recette commune ; pas de préférence de foyer)
+ */
+export type TasteOwner = { userId: string } | { personId: string, householdId: string } | { householdId: string }
 
 function ownerFields(owner: TasteOwner) {
-  return 'userId' in owner
-    ? { user_id: owner.userId, household_id: null, person_id: null }
-    : { user_id: null, household_id: owner.householdId, person_id: owner.personId }
+  if ('userId' in owner) return { user_id: owner.userId, household_id: null, person_id: null }
+  if ('personId' in owner) return { user_id: null, household_id: owner.householdId, person_id: owner.personId }
+  return { user_id: null, household_id: owner.householdId, person_id: null }
 }
 
 export type OptionTable = 'locations' | 'foodTypes'
@@ -227,11 +231,12 @@ export function useHouseholdActions() {
   const updatePreference = (id: string, changes: Partial<Pick<Preference, 'label' | 'barcode' | 'level' | 'deleted_at'>>) =>
     patch(db.preferences, id, changes)
 
-  async function saveRecipe(owner: TasteOwner, data: { id?: string, name: string, ingredients: Ingredient[], instructions: string }) {
+  async function saveRecipe(owner: TasteOwner, data: { id?: string, name: string, ingredients: Ingredient[], instructions: string, rating?: number }) {
     const fields = {
       name: data.name.trim(),
       ingredients: data.ingredients.filter(i => i.name.trim()).map(i => ({ name: i.name.trim(), quantity: i.quantity ?? null, unit: i.unit })),
-      instructions: data.instructions
+      instructions: data.instructions,
+      rating: data.rating ?? 0
     }
     if (data.id) {
       await patch(db.recipes, data.id, fields)
@@ -245,13 +250,15 @@ export function useHouseholdActions() {
 
   const deleteRecipe = (id: string) => patch(db.recipes, id, { deleted_at: nowIso() })
   const restoreRecipe = (id: string) => patch(db.recipes, id, { deleted_at: null })
+  /** Note de 0 à 5 étoiles */
+  const rateRecipe = (id: string, rating: number) => patch(db.recipes, id, { rating })
 
   return {
     createHousehold, updateHousehold,
     addPerson, updatePerson,
     addOption, updateOption, reorderOptions,
     addProduct, updateProduct, addStockItem, updateStockItem, addMovements, cancelMovements,
-    addPreference, updatePreference, saveRecipe, deleteRecipe, restoreRecipe
+    addPreference, updatePreference, saveRecipe, deleteRecipe, restoreRecipe, rateRecipe
   }
 }
 

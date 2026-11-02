@@ -93,6 +93,7 @@ app/
 │   ├── BarcodeScanner.vue          caméra + décodage
 │   ├── TastesEditor.vue            préférences + liste de recettes
 │   ├── RecipeModal.vue             édition d'une recette
+│   ├── HouseholdRecipesModal.vue   recettes communes du foyer (écran Idées)
 │   ├── OptionsEditor.vue           rangements / types d'aliments
 │   ├── StarRating.vue, NutriscoreBadge.vue
 │   ├── SyncStatus.vue              état de la synchro (en-tête)
@@ -147,6 +148,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 | 3 | `locations.freezer` (`isFreezerLike` : icône flocon ou libellé « Congélateur… ») et `foodTypes.freezer_months` (`FREEZER_MONTHS` par libellé) sur les lignes existantes — même règle que la migration serveur, pour qu'une ligne locale non envoyée n'écrase pas la valeur serveur |
 | 4 | Tables `receiptAliases` (synchronisée) et `receiptLines` (ticket en attente, locale ; purgée avec son foyer) |
 | 5 | `receiptLines` synchronisée (index `_dirty`) : les lignes en attente existantes reçoivent `updated_at`, `deleted_at = null` et sont marquées à envoyer |
+| 6 | `recipes.rating = 0` sur les lignes existantes (colonne non nulle côté serveur) |
 
 ## 6. Synchronisation
 
@@ -207,6 +209,8 @@ Pas de calcul à l'affichage : la date limite est **écrite dans `expires_on`** 
 
 Pour chaque personne non supprimée du foyer : goûts de son compte (`user_id = person.user_id`, `fromAccount: true`) + goûts propres (`person_id = person.id`).
 
+Recettes communes (`useHouseholdRecipes`) : `household_id = foyer`, sans `person_id` ni `user_id` ; propriétaire `{ householdId }` (`TasteOwner`).
+
 ### Rapprochement (`utils/matching.ts`)
 
 `tokens(texte)` : minuscules, sans accents, `œ → oe`, « pomme(s) de terre » fusionné, découpage sur les non-alphanumériques, suppression des mots vides et des nombres, singulier naïf (`s` / `x` final si > 3 lettres).
@@ -218,7 +222,8 @@ Pour chaque personne non supprimée du foyer : goûts de son compte (`user_id = 
 
 ### Idées (`useSuggestions`)
 
-- Recettes = union des recettes des personnes, dédoublonnées par id (`favoredBy` = personnes qui l'ont).
+- Recettes = recettes communes du foyer (`common: true`, `favoredBy` vide) + union des recettes des personnes, dédoublonnées par id (`favoredBy` = personnes qui l'ont).
+- Tri *Avec le stock* : sans allergie, `coverage`, `rating`, `favoredBy.length`, aversions, `urgency` ; *Anti-gaspi* : sans allergie, `urgency`, `coverage`, `rating`.
 - Pour chaque aliment : lots correspondants triés par score puis péremption.
 - `coverage = aliments trouvés / aliments`, `urgency = Σ urgencyOf(lot le plus pertinent)`, `conflicts` = préférences *dislike* / *allergy* d'une personne correspondant à un aliment.
 - Avis d'une personne sur un aliment : `useOpinions(householdId).opinionsOn(nom, codesBarres)` — préférence de même code-barres que le produit (`byBarcode`), sinon `matches(libellé, nom)` ; `fromAccount` indique un goût de compte. Utilisé par les idées (pour un ingrédient de recette, les codes-barres sont ceux des produits trouvés en stock), la fiche produit et la liste du stock (une préférence par personne, la plus forte).

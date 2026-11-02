@@ -13,6 +13,7 @@ Migrations de l'application (dans l'ordre, dans le SQL Editor, **après** celles
 | [`20261102100000_receipt_aliases.sql`](../supabase/migrations/20261102100000_receipt_aliases.sql) | Libellés de tickets de caisse mémorisés (`pp_receipt_aliases`) |
 | [`20261102110000_stock_items_price.sql`](../supabase/migrations/20261102110000_stock_items_price.sql) | Prix payé des lots (`pp_stock_items.price`), historique des prix |
 | [`20261103100000_receipt_lines.sql`](../supabase/migrations/20261103100000_receipt_lines.sql) | Lignes de tickets en attente partagées par le foyer (`pp_receipt_lines`) |
+| [`20261103110000_household_recipes.sql`](../supabase/migrations/20261103110000_household_recipes.sql) | Recettes communes du foyer (`pp_recipes` sans personne) et note des recettes (`rating`) |
 
 Une migration qui ajoute une colonne synchronisée doit être exécutée **avant** le déploiement de l'application qui l'utilise.
 
@@ -136,6 +137,7 @@ erDiagram
         text name
         jsonb ingredients
         text instructions
+        smallint rating "0..5"
     }
 ```
 
@@ -301,15 +303,18 @@ Contrainte `pp_preferences_owner` : **soit** `user_id` seul, **soit** `household
 
 Index partiels : `(user_id, updated_at)`, `(household_id, updated_at)`.
 
-### `pp_recipes` — recettes préférées
+### `pp_recipes` — recettes préférées et recettes du foyer
 
-Mêmes colonnes de rattachement et même contrainte (`pp_recipes_owner`) que `pp_preferences`, plus :
+Mêmes colonnes de rattachement que `pp_preferences`, avec un cas de plus. Contrainte `pp_recipes_owner` : **soit** `user_id` seul (recette du compte), **soit** `household_id` + `person_id` (recette d'une personne du foyer), **soit** `household_id` seul (**recette commune du foyer**, depuis la migration `20261103110000_household_recipes.sql`).
 
 | Colonne | Type | Contraintes / défaut | Description |
 |---|---|---|---|
 | `name` | text | not null, non vide | |
 | `ingredients` | jsonb | not null, tableau, défaut `[]` | `[{ "name": "Tomate", "quantity": 3, "unit": "pièce" }]` (`quantity` peut être `null`, `unit` vide) |
 | `instructions` | text | not null, défaut `''` | Texte libre |
+| `rating` | smallint | not null, 0 à 5, défaut 0 | Note (étoiles) ; 0 = non notée |
+
+RLS d'écriture : comme `pp_preferences`, mais `person_id` peut être vide pour une recette de foyer (`person_id is null or pp_person_in_household(person_id, household_id)`).
 
 ## 4. Fonctions
 

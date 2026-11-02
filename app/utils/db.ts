@@ -112,6 +112,7 @@ export type PreferenceLevel = 'love' | 'like' | 'dislike' | 'allergy'
  * Préférence ou recette :
  * - niveau compte : user_id renseigné (household_id / person_id vides)
  * - niveau foyer : person_id + household_id
+ * - recette commune du foyer : household_id seul (recettes uniquement)
  */
 interface Owned {
   user_id: string | null
@@ -138,6 +139,8 @@ export interface Recipe extends SyncFields, Timestamps, Owned {
   name: string
   ingredients: Ingredient[]
   instructions: string
+  /** note de 0 à 5 étoiles (0 = non notée) */
+  rating: number
 }
 
 /** Libellé de ticket de caisse mémorisé pour un produit (product_id null = libellé à ignorer) */
@@ -272,6 +275,10 @@ export function openDb(userId: string): AppDb {
       l.deleted_at ??= null
       l._dirty = 1
       l._lmod = Date.now()
+    }))
+    // note des recettes : 0 sur les lignes existantes (colonne non nulle côté serveur)
+    db.version(6).stores({}).upgrade(tx => tx.table('recipes').toCollection().modify((r: Partial<Recipe>) => {
+      r.rating ??= 0
     }))
     instances.set(userId, db)
   }

@@ -51,13 +51,29 @@ function takeFood(lot: Lot) {
 function names(people: { name: string }[]) {
   return people.map(p => p.name).join(', ')
 }
+
+// --- Recettes du foyer et notes ---
+const { user } = useAuth()
+const { householdRecipes } = useHouseholdRecipes(householdId)
+const { rateRecipe } = useHouseholdActions()
+const householdRecipesOpen = ref(false)
+
+/** Note modifiable : recette du foyer ou d'une personne, ou recette de mon compte (celles des autres comptes sont en lecture seule) */
+function canRate(s: RecipeSuggestion) {
+  return !s.recipe.user_id || s.recipe.user_id === user.value?.id
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <h1 class="text-2xl font-bold">
-      Idées
-    </h1>
+    <div class="flex items-center gap-2">
+      <h1 class="text-2xl font-bold flex-1">
+        Idées
+      </h1>
+      <UButton icon="i-lucide-book-open" color="neutral" variant="soft" size="sm" @click="householdRecipesOpen = true">
+        Recettes du foyer{{ householdRecipes.length ? ` · ${householdRecipes.length}` : '' }}
+      </UButton>
+    </div>
 
     <UTabs v-model="tab" :items="tabs" :content="false" class="w-full" :ui="{ trigger: 'flex-1 text-xs sm:text-sm' }" />
 
@@ -65,7 +81,7 @@ function names(people: { name: string }[]) {
     <template v-if="tab !== 'foods'">
       <p class="text-sm text-muted">
         {{ tab === 'stock'
-          ? 'Les recettes préférées des personnes du foyer, des plus faciles à réaliser avec le stock aux moins complètes.'
+          ? 'Les recettes du foyer et les recettes préférées de chacun, des plus faciles à réaliser avec le stock aux moins complètes (à égalité, les mieux notées d\'abord).'
           : 'Les recettes qui utilisent les aliments qui périment bientôt.' }}
       </p>
 
@@ -74,9 +90,12 @@ function names(people: { name: string }[]) {
         icon="i-lucide-book-open"
         title="Aucune recette à proposer"
         :description="tab === 'stock'
-          ? 'Ajoutez des recettes préférées (avec leurs ingrédients) aux personnes du foyer, et des aliments au stock.'
+          ? 'Ajoutez des recettes (avec leurs ingrédients) au foyer ou aux personnes, et des aliments au stock.'
           : 'Aucune recette n\'utilise d\'aliment qui périme dans les 14 prochains jours.'"
-        :actions="[{ label: 'Personnes du foyer', icon: 'i-lucide-users', to: `/foyer/${householdId}/personnes` }]"
+        :actions="[
+          { label: 'Recettes du foyer', icon: 'i-lucide-book-open', onClick: () => { householdRecipesOpen = true } },
+          { label: 'Personnes du foyer', icon: 'i-lucide-users', color: 'neutral', variant: 'soft', to: `/foyer/${householdId}/personnes` }
+        ]"
       />
 
       <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 items-start">
@@ -91,8 +110,14 @@ function names(people: { name: string }[]) {
               </UBadge>
             </div>
             <UProgress :model-value="Math.round(s.coverage * 100)" size="xs" :color="s.coverage === 1 ? 'success' : 'primary'" />
-            <p class="text-xs text-muted flex items-center gap-1">
-              <UIcon name="i-lucide-heart" class="size-3 text-pink-500" /> {{ names(s.favoredBy) }}
+            <p class="text-xs text-muted flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span v-if="s.common" class="inline-flex items-center gap-1">
+                <UIcon name="i-lucide-house" class="size-3 text-primary" /> Recette du foyer
+              </span>
+              <span v-if="s.favoredBy.length" class="inline-flex items-center gap-1">
+                <UIcon name="i-lucide-heart" class="size-3 text-pink-500" /> {{ names(s.favoredBy) }}
+              </span>
+              <StarRating v-if="s.recipe.rating" :model-value="Number(s.recipe.rating)" readonly size="sm" />
             </p>
             <p v-if="tab === 'expiry'" class="text-xs flex flex-wrap gap-1">
               <UBadge
@@ -133,6 +158,10 @@ function names(people: { name: string }[]) {
             <p v-if="s.recipe.instructions" class="text-sm whitespace-pre-line rounded-lg bg-muted/50 p-2.5">
               {{ s.recipe.instructions }}
             </p>
+            <div v-if="canRate(s)" class="flex items-center gap-2 text-sm">
+              <span class="text-muted">Note :</span>
+              <StarRating :model-value="Number(s.recipe.rating ?? 0)" @update:model-value="v => rateRecipe(s.recipe.id, v)" />
+            </div>
             <UButton block icon="i-lucide-cooking-pot" @click="cook(s)">
               Je la cuisine : retirer les aliments
             </UButton>
@@ -192,5 +221,6 @@ function names(people: { name: string }[]) {
       :recipe-name="takeRecipe"
       :title="takeRecipe ?? undefined"
     />
+    <HouseholdRecipesModal v-model:open="householdRecipesOpen" :household-id="householdId" />
   </div>
 </template>

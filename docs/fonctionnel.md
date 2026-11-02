@@ -83,6 +83,7 @@ Une recette a :
 - un **nom** (obligatoire) ;
 - une **liste d'aliments** (facultative) : nom, quantité et unité facultatives ;
 - un **texte libre** (préparation, notes).
+- une **note** de 0 à 5 étoiles (facultative) : à couverture du stock égale, les recettes les mieux notées sont proposées en premier dans les idées.
 
 Les aliments de la recette servent à la rapprocher du stock. Une recette en texte seul est conservée mais n'apparaît pas dans les idées.
 
@@ -289,7 +290,17 @@ Un lot dont le restant atteint 0 disparaît du stock mais reste dans l'historiqu
 
 ## 10. Idées (recherches)
 
-Écran *Idées*, trois onglets. Les recettes proposées sont **les recettes préférées de toutes les personnes du foyer** (goûts du compte + compléments du foyer).
+Écran *Idées*, trois onglets. Les recettes proposées sont **les recettes du foyer** et **les recettes préférées de toutes les personnes du foyer** (goûts du compte + compléments du foyer).
+
+### Recettes du foyer
+
+Bouton **Recettes du foyer** (en-tête de l'écran *Idées*, avec leur nombre) : recettes **communes**, rattachées au foyer et à aucune personne particulière (ex. le plat du dimanche). La fenêtre les liste avec leur note ; *Nouvelle recette* et un appui sur une recette ouvrent la même fenêtre d'édition que pour une personne (nom, note, aliments, texte libre, suppression annulable). Tous les membres du foyer peuvent les modifier.
+
+Dans les idées, une recette commune porte la mention « Recette du foyer » (icône maison) ; les allergies et aversions de toutes les personnes du foyer y sont signalées comme pour les autres recettes.
+
+### Note des recettes
+
+Chaque recette a une note de 0 à 5 étoiles, affichée sur les idées et dans les listes de recettes. Elle se donne dans la fenêtre d'édition, ou directement sur une idée dépliée (*Note* ; toucher l'étoile courante remet à 0). La note d'une recette du compte d'un autre membre n'est modifiable que par lui.
 
 ### Rapprochement aliment ↔ produit
 
@@ -311,9 +322,10 @@ Un aliment de recette correspond à un produit en stock si ses mots significatif
 Recettes dont au moins un aliment est en stock, classées par :
 1. sans allergie d'abord ;
 2. part des aliments disponibles (ex. 4/5) ;
-3. nombre de personnes qui l'ont en favori ;
-4. nombre d'aversions ;
-5. urgence de péremption.
+3. note de la recette (étoiles) ;
+4. nombre de personnes qui l'ont en favori ;
+5. nombre d'aversions ;
+6. urgence de péremption.
 
 ### Onglet « Anti-gaspi »
 

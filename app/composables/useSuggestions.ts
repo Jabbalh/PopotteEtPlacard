@@ -22,6 +22,8 @@ export interface RecipeSuggestion {
   recipe: Recipe
   /** personnes qui ont cette recette dans leurs favorites */
   favoredBy: Person[]
+  /** recette commune du foyer (rattachée à aucune personne) */
+  common: boolean
   matches: IngredientMatch[]
   /** part des ingrédients disponibles (0 à 1) */
   coverage: number
@@ -76,19 +78,21 @@ export function useOpinions(householdId: Ref<string>) {
 export function useSuggestions(householdId: Ref<string>) {
   const { lots } = useStock(householdId)
   const { tastes } = useHouseholdTastes(householdId)
+  const { householdRecipes } = useHouseholdRecipes(householdId)
   const { opinionsOn } = useOpinions(householdId)
 
   const recipes = computed<RecipeSuggestion[]>(() => {
-    const byId = new Map<string, { recipe: Recipe, favoredBy: Person[] }>()
+    const byId = new Map<string, { recipe: Recipe, favoredBy: Person[], common: boolean }>()
+    for (const r of householdRecipes.value) byId.set(r.id, { recipe: r, favoredBy: [], common: true })
     for (const t of tastes.value) {
       for (const r of t.recipes) {
-        const entry = byId.get(r.id) ?? { recipe: r, favoredBy: [] }
+        const entry = byId.get(r.id) ?? { recipe: r, favoredBy: [], common: false }
         entry.favoredBy.push(t.person)
         byId.set(r.id, entry)
       }
     }
 
-    return [...byId.values()].map(({ recipe, favoredBy }) => {
+    return [...byId.values()].map(({ recipe, favoredBy, common }) => {
       const matchList: IngredientMatch[] = []
       const missing: Ingredient[] = []
       const conflicts: PersonOpinion[] = []
@@ -109,6 +113,7 @@ export function useSuggestions(householdId: Ref<string>) {
       return {
         recipe,
         favoredBy,
+        common,
         matches: matchList,
         missing,
         coverage: recipe.ingredients.length ? matchList.length / recipe.ingredients.length : 0,
@@ -120,11 +125,14 @@ export function useSuggestions(householdId: Ref<string>) {
 
   const hasAllergy = (s: RecipeSuggestion) => s.conflicts.some(c => c.level === 'allergy') ? 1 : 0
 
-  /** Recettes réalisables avec le stock : les plus complètes d'abord, puis les plus appréciées */
+  const rating = (s: RecipeSuggestion) => Number(s.recipe.rating ?? 0)
+
+  /** Recettes réalisables avec le stock : les plus complètes d'abord, puis les mieux notées, puis les plus appréciées */
   const byStock = computed(() => recipes.value
     .filter(s => s.matches.length > 0)
     .sort((a, b) => hasAllergy(a) - hasAllergy(b)
       || b.coverage - a.coverage
+      || rating(b) - rating(a)
       || b.favoredBy.length - a.favoredBy.length
       || a.conflicts.length - b.conflicts.length
       || b.urgency - a.urgency))
@@ -132,7 +140,7 @@ export function useSuggestions(householdId: Ref<string>) {
   /** Recettes qui utilisent des aliments bientôt périmés */
   const byExpiry = computed(() => recipes.value
     .filter(s => s.urgency > 0)
-    .sort((a, b) => hasAllergy(a) - hasAllergy(b) || b.urgency - a.urgency || b.coverage - a.coverage))
+    .sort((a, b) => hasAllergy(a) - hasAllergy(b) || b.urgency - a.urgency || b.coverage - a.coverage || rating(b) - rating(a)))
 
   /** Aliments à consommer en priorité (date de péremption croissante) */
   const foods = computed(() => lots.value
