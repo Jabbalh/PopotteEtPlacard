@@ -247,7 +247,7 @@ Durées proposées à la création d'un foyer (modifiables) :
 - **Rien n'est perdu** : les lignes non reconnues comme articles (en-tête, totaux, paiement, ou format de ticket inconnu) restent à disposition.
   - Aucun article reconnu : **toutes les lignes du ticket sont listées**, à associer, ignorer ou retirer.
   - Sinon, seuls les articles sont listés, et le message de fin d'import propose *Les lister aussi* pour ajouter les autres lignes (article oublié par la lecture).
-- **Date d'achat** : celle du ticket si elle y figure, sinon la date choisie (aujourd'hui par défaut).
+- **Date d'achat** : celle du ticket si elle y figure, sinon la date choisie (aujourd'hui par défaut). Elle reste **modifiable au-dessus de la liste** (ticket saisi après coup, date absente ou mal lue) et s'applique à toutes les lignes en attente ; la date limite proposée au congélateur en tient compte.
 
 **Liste en attente (« stock temporaire »)**
 

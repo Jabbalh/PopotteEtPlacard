@@ -21,6 +21,18 @@ const counts = computed(() => {
   return c
 })
 
+/** Date d'achat des lignes en attente : commune, ou null si plusieurs tickets de dates différentes */
+const linesDate = computed(() => {
+  const dates = new Set(lines.value.map(l => l.purchased_on))
+  return dates.size === 1 ? [...dates][0]! : null
+})
+async function setLinesDate(value: string | number) {
+  const date = String(value)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return
+  await receipt.setPurchasedOn(date)
+  purchasedOn.value = date
+}
+
 // --- Import ---
 const showImport = ref(false)
 const purchasedOn = ref(todayKey())
@@ -268,6 +280,21 @@ async function clearAll() {
       <p class="text-xs text-muted -mt-2">
         Liste enregistrée sur cet appareil : vous pouvez la compléter plus tard. Les lignes prêtes partent au stock, les autres restent ici.
       </p>
+
+      <!-- Date d'achat (ticket saisi après coup) -->
+      <UFormField
+        label="Date d'achat"
+        :hint="linesDate ? undefined : 'Plusieurs dates : en choisir une l\'applique à toutes les lignes'"
+        :help="linesDate ? 'S\'applique à toutes les lignes du ticket (péremption au congélateur comprise).' : undefined"
+      >
+        <UInput
+          :model-value="linesDate ?? ''"
+          type="date"
+          :max="todayKey()"
+          class="w-full md:w-60"
+          @update:model-value="setLinesDate"
+        />
+      </UFormField>
 
       <ul class="grid grid-cols-1 gap-2 md:grid-cols-2">
         <ReceiptLineCard

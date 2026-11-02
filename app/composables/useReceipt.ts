@@ -127,6 +127,9 @@ export function useReceipt(householdId: Ref<string>) {
   const updateLine = (id: string, changes: Partial<ReceiptLine>) => db.receiptLines.update(id, changes)
   const removeLine = (id: string) => db.receiptLines.delete(id)
   const clear = () => db.receiptLines.where('household_id').equals(householdId.value).delete()
+  /** Date d'achat de toutes les lignes en attente (ticket saisi après coup) */
+  const setPurchasedOn = (date: string) =>
+    db.receiptLines.where('household_id').equals(householdId.value).modify({ purchased_on: date })
 
   /** Associe un libellé à un produit (ou null = à ignorer) pour les prochains tickets */
   async function remember(label: string, productId: string | null) {
@@ -190,7 +193,7 @@ export function useReceipt(householdId: Ref<string>) {
   return {
     loading, lines, aliases, products, productById, locations, foodTypes,
     locationOf, freezerLimitOf, suggestionsFor,
-    importItems, addLine, updateLine, removeLine, clear, validate
+    importItems, addLine, updateLine, removeLine, clear, setPurchasedOn, validate
   }
 }
 
