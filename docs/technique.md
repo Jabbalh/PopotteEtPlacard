@@ -29,6 +29,7 @@
 | PWA | `@vite-pwa/nuxt` (Workbox), mise à jour sur demande |
 | Codes-barres | `BarcodeDetector` natif, sinon `barcode-detector` (ponyfill) + `zxing-wasm` |
 | Produits | API publique Open Food Facts v2 |
+| Tickets PDF | `pdfjs-dist` (build `legacy`), chargé à la demande, worker embarqué |
 | Hébergement | Vercel (site statique) |
 
 Le socle (auth, synchro, PWA, invitations admin) reprend celui de **Pas ce soir** ; la base Supabase est partagée (voir [base-de-donnees.md](base-de-donnees.md)).
@@ -75,17 +76,20 @@ app/
 │   ├── useHousehold.ts             actions d'écriture + foyer, personnes, rangements, types
 │   ├── useStock.ts                 lots, restants, stock par produit, à commander, goûts par personne
 │   ├── useSuggestions.ts           idées de recettes et d'aliments
-│   └── useCatalog.ts               aliments proposés à la saisie des préférences, recherche par code-barres
+│   ├── useCatalog.ts               aliments proposés à la saisie des préférences, recherche par code-barres
+│   └── useReceipt.ts               ticket de caisse : lignes en attente, libellés mémorisés, ajout au stock
 ├── utils/
 │   ├── db.ts                       types des tables et schéma Dexie
 │   ├── format.ts                   dates, quantités, libellés, valeurs par défaut
 │   ├── matching.ts                 rapprochement approximatif de libellés
 │   ├── openFoodFacts.ts            recherche produit par code-barres
+│   ├── receipt.ts                  texte d'un ticket PDF, découpage en articles, rapprochement des libellés
 │   ├── errors.ts                   traduction des messages d'erreur
 │   └── token.ts                    jetons aléatoires, partage natif / copie
 ├── components/
 │   ├── AddStockModal.vue           popin d'ajout (scan, produit, lot)
 │   ├── TakeStockModal.vue          popin de sortie de stock (1 ou n lots)
+│   ├── ReceiptLineCard.vue         ligne d'un ticket de caisse (association, quantité, rangement)
 │   ├── BarcodeScanner.vue          caméra + décodage
 │   ├── TastesEditor.vue            préférences + liste de recettes
 │   ├── RecipeModal.vue             édition d'une recette
@@ -123,6 +127,8 @@ Une base IndexedDB **par utilisateur** : `popotte-<userId>` (`openDb(userId)`), 
 | `movements` | `pp_stock_movements` | `id, household_id, stock_item_id, _dirty` |
 | `preferences` | `pp_preferences` | `id, user_id, household_id, person_id, _dirty` |
 | `recipes` | `pp_recipes` | `id, user_id, household_id, person_id, _dirty` |
+| `receiptAliases` | `pp_receipt_aliases` | `id, household_id, _dirty` |
+| `receiptLines` | — (locale, jamais synchronisée) | `id, household_id` |
 | `profiles` | `profiles` (lecture seule) | `id` |
 | `meta` | — | `key` (curseurs de synchro) |
 
@@ -139,6 +145,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 | 1 | Schéma initial |
 | 2 | `products.reorder = false`, `products.ordered_at = null` sur les lignes existantes (la synchro envoie `null` pour un champ absent, refusé par `reorder not null`) |
 | 3 | `locations.freezer` (`isFreezerLike` : icône flocon ou libellé « Congélateur… ») et `foodTypes.freezer_months` (`FREEZER_MONTHS` par libellé) sur les lignes existantes — même règle que la migration serveur, pour qu'une ligne locale non envoyée n'écrase pas la valeur serveur |
+| 4 | Tables `receiptAliases` (synchronisée) et `receiptLines` (ticket en attente, locale ; purgée avec son foyer) |
 
 ## 6. Synchronisation
 
@@ -153,7 +160,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 ### Envoi (push)
 
 1. `households` : upsert unitaire. `deleted_at` n'est envoyé que si l'utilisateur est propriétaire (sinon refus serveur).
-2. Puis, dans l'ordre des clés étrangères : `people`, `locations`, `foodTypes`, `products`, `stockItems`, `movements`, `preferences`, `recipes`, par lots de 100, en **upsert** des colonnes déclarées dans `TABLES[...].fields`.
+2. Puis, dans l'ordre des clés étrangères : `people`, `locations`, `foodTypes`, `products`, `receiptAliases`, `stockItems`, `movements`, `preferences`, `recipes`, par lots de 100, en **upsert** des colonnes déclarées dans `TABLES[...].fields`.
 3. Lot refusé pour droits (`42501`, `PGRST301`) : renvoi ligne par ligne pour isoler la ligne fautive, qui est journalisée puis marquée propre (ex. foyer quitté entre-temps). Toute autre erreur interrompt la synchro (`lastError`).
 
 **Cas particulier `people`** : `user_id`, `role` et `invite_token` ne sont **jamais** envoyés, sauf `user_id` + `role` pour la personne du créateur d'un foyer (création hors ligne). Le lien personne ↔ compte est protégé côté serveur (voir [base-de-donnees.md § Règles](base-de-donnees.md#5-règles-métier-triggers)).
@@ -220,6 +227,21 @@ Pour chaque personne non supprimée du foyer : goûts de son compte (`user_id = 
 - `useBarcodeLookup().lookup(code)` : produit déjà connu localement (tous foyers), sinon Open Food Facts.
 - Tris : voir [fonctionnel.md § 10](fonctionnel.md#10-idées-recherches).
 
+### Ticket de caisse (`utils/receipt.ts`, `useReceipt`)
+
+- `extractPdfLines(file)` : `pdfjs-dist/legacy/build` importé dynamiquement (la build `legacy` évite `Math.sumPrecise`, absent de nombreux navigateurs mobiles), worker embarqué (`?url`, précaché). Les morceaux de texte de même hauteur (± 2 pt) forment une ligne, triés par x ; un écart entre deux morceaux devient une double espace.
+- `parseReceipt(lignes)` → `{ items, others, date }` (`others` : lignes avec au moins 2 lettres non retenues comme articles, prix conservé s'il est positif ; l'écran les importe toutes si `items` est vide, sinon sur demande) :
+  - article = ligne terminée par un prix (`1,15`, `1,15 €`, code TVA facultatif : lettre(s) ou 1 à 2 chiffres, ex. `5,63 € 11` chez Super U), prix > 0, au moins 2 lettres, hors mots d'exclusion (`total`, `tva`, `cb`, `remise`, `fidelite`…) ;
+  - quantité : ligne `2 x 0,89` (rattachée à l'article précédent si son prix = q × pu, sinon au suivant), ligne `0,512 kg x 2,99 €/kg` (`weighed`), colonnes `libellé q pu total`, ou `2 x LIBELLE` / `LIBELLE x2` ;
+  - fin des articles au premier total (`END_OF_ITEMS` : `total`, `sous-total`, `nombre de lignes`, `nb articles`, `a payer`…) une fois au moins un article lu : les lignes suivantes (TVA, paiement, solde de fidélité…) vont dans `others` ;
+  - texte sans aucun prix : un article par ligne (sauf les lignes réduites à un prix) ;
+  - articles de même `receiptKey` regroupés (quantités et prix additionnés) ;
+  - date : première date `JJ/MM/AAAA` (ou `AA`, séparateurs `/ . -`) comprise entre aujourd'hui + 1 j et un an avant.
+- `receiptKey(libellé)` : minuscules, sans accents, espaces simples (chiffres conservés : « 1L » ≠ « 50CL »). Clé des associations `pp_receipt_aliases`.
+- `suggestProducts(libellé, produits, alias)` : mots du ticket (`tokens` de `matching.ts`, sans contenances ni nombres, `1/2` → `demi`) comparés aux mots du **nom** du produit, la **marque** pouvant expliquer un mot ; un mot correspond s'il est identique ou si l'un est le préfixe de l'autre (≥ 3 lettres : « ecr » → « ecreme »). Score = 0,6 × part des mots du ticket trouvés + 0,3 × part des mots du nom couverts + 0,1 si les premiers mots correspondent ; maximum avec le même calcul contre les autres libellés associés au produit. Seuil d'affichage 0,35.
+- Import (`importItems`) : libellé mémorisé → produit (`match = 'alias'`) ou ligne ignorée (`product_id` null) ; sinon présélection (`'guess'`) si le meilleur score ≥ `STRONG_MATCH` (0,8) avec 0,15 d'avance sur le second.
+- Validation (`validate`) : pour chaque ligne prête, produit créé si besoin (un seul par nom / code-barres), lot (`lineQuantity` : kg → g si l'unité du produit est `g` ; rangement = choisi, sinon celui du dernier lot du produit, sinon le premier ; péremption = saisie, sinon date limite congélateur), puis `remember(libellé, produit)`. Les lignes ignorées sont mémorisées avec `product_id = null`. Plusieurs associations pour une même clé (deux appareils) : la plus récente (`updated_at`) l'emporte.
+
 ### Écritures (`useHouseholdActions`)
 
 Toutes les écritures créent l'UUID côté client, posent `_dirty = 1` et `_lmod`, puis appellent `schedule()`. Les suppressions sont des mises à jour de `deleted_at`, ce qui rend l'annulation triviale (`deleted_at = null`).
@@ -253,7 +275,7 @@ Renvoie `null` si inconnu (404 ou `status ≠ 1`), lève une erreur si le servic
 ## 9. PWA et hors connexion
 
 - `registerType: 'prompt'` : `PwaPrompts.vue` affiche « Nouvelle version disponible » ; recherche de mise à jour toutes les heures.
-- Précache Workbox : `js, css, html, png, svg, ico, woff2, wasm` (limite 4 Mo par fichier, pour le décodeur ≈ 1 Mo).
+- Précache Workbox : `js, mjs, css, html, png, svg, ico, woff2, wasm` (limite 4 Mo par fichier, pour le décodeur ≈ 1 Mo et le worker pdf.js ≈ 1,3 Mo).
 - `navigateFallback: '/'` : toutes les routes fonctionnent hors connexion (SPA).
 - Cache `CacheFirst` des photos `images.openfoodfacts.org` (500 entrées, 180 jours).
 - Les appels Supabase ne sont jamais mis en cache par le service worker : c'est IndexedDB qui assure le hors connexion.

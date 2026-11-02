@@ -156,7 +156,8 @@ Règles :
   - badge de péremption du lot le plus urgent ;
   - préférences des personnes du foyer : un badge par personne (prénom, couleur et icône du niveau), avec sa préférence la plus forte, allergies et aversions d'abord, 3 au maximum puis « +N » ; le survol affiche la préférence saisie. Le détail complet est sur la fiche produit.
 - Bouton **−** en bout de ligne : *Retirer du stock* (le lot le plus urgent est présélectionné). Toucher le reste de la ligne ouvre la fiche produit.
-- Boutons d'ajout **Scanner** (ouvre la caméra) et **+ Manuel** (saisie libre) : flottants en bas à droite sur mobile et tablette, dans l'en-tête de la page sur PC.
+- Boutons d'ajout **Scanner** (ouvre la caméra), **+ Manuel** (saisie libre) et **Ticket** (ticket de caisse, § 8) : flottants en bas à droite sur mobile et tablette, dans l'en-tête de la page sur PC.
+- Un ticket de caisse en cours de saisie sur l'appareil est signalé en haut de la liste (*Continuer*).
 
 ### Badges de péremption
 
@@ -232,6 +233,35 @@ Durées proposées à la création d'un foyer (modifiables) :
 | Poisson | 4 mois |
 | Produits laitiers, Féculents, Épicerie sucrée, Plats préparés | 3 mois |
 | Œufs, Conserves, Épicerie salée, Boissons, Autre | — |
+
+### Ticket de caisse
+
+Écran *Ticket de caisse* (bouton **Ticket** du stock) : ajoute d'un coup tous les articles d'un ticket. Un ticket ne porte pas de code-barres, seulement des libellés abrégés (« BEURRE DX PRES 250G ») : chaque article est donc **associé à un produit** avant d'entrer dans le stock.
+
+**Import**
+- **Ticket PDF** : ticket dématérialisé envoyé par le magasin (courriel, appli de fidélité). Son texte est lu **sur l'appareil**, sans envoi ni connexion. Un PDF issu d'un scan ou d'une photo ne contient pas de texte : un message le signale.
+- **Coller le texte** : texte d'un ticket, ou simple liste (un article par ligne, « Lait x2 » ou « 2 x yaourts » pour la quantité).
+- Sont reconnus : le prix en fin de ligne, la ligne « 2 x 0,89 » avant ou après l'article, les articles pesés (« 0,512 kg x 2,99 €/kg » → 0,512 kg), les colonnes quantité / prix unitaire / total. Un article passé plusieurs fois en caisse est regroupé.
+- **Rien n'est perdu** : les lignes non reconnues comme articles (en-tête, totaux, paiement, ou format de ticket inconnu) restent à disposition.
+  - Aucun article reconnu : **toutes les lignes du ticket sont listées**, à associer, ignorer ou retirer.
+  - Sinon, seuls les articles sont listés, et le message de fin d'import propose *Les lister aussi* pour ajouter les autres lignes (article oublié par la lecture).
+- **Date d'achat** : celle du ticket si elle y figure, sinon la date choisie (aujourd'hui par défaut).
+
+**Liste en attente (« stock temporaire »)**
+
+Les articles forment une liste enregistrée **sur l'appareil** : on peut la compléter plus tard (le stock signale un ticket en cours). Pour chaque ligne :
+
+| État | Signification |
+|---|---|
+| Reconnu | Libellé déjà associé à un produit par un membre du foyer : le produit est repris |
+| Proposé, à vérifier | Pas d'association connue, mais un produit déjà acheté ressemble nettement au libellé |
+| À compléter | Choisir parmi les produits **déjà achetés** proposés, **Chercher** un produit, **Scanner** l'article (produit du foyer ou Open Food Facts), ou créer un **Nouveau produit** (nom proposé d'après le libellé, unité, type) |
+| Ignoré | Sac, consigne, article non alimentaire… (*Rétablir* pour annuler) |
+
+- La comparaison des noms comprend les abréviations des tickets (« ECR » → écrémé, « PRES » → Président, « 1/2 » → demi) et s'appuie aussi sur les autres libellés déjà associés à un produit.
+- Quantité modifiable (en kg pour un article pesé, convertie en grammes si le produit se compte en g), péremption facultative, rangement (celui du dernier lot du produit, sinon le premier). Au congélateur, la date limite est proposée selon le type d'aliment, comme à l'ajout d'un produit.
+- **Ajouter au stock** : crée un lot pour chaque ligne prête (et les nouveaux produits), puis les retire de la liste ; les lignes à compléter restent. Les associations libellé → produit, et les libellés ignorés, sont **mémorisées pour tout le foyer** : le ticket suivant les reconnaît, quel que soit le membre qui l'importe.
+- **Tout effacer** vide la liste sans rien ajouter.
 
 ## 9. Sortie de stock et corrections
 
@@ -349,6 +379,7 @@ Indépendant des **Favoris à racheter** du bilan (fondés sur les étoiles).
 | Goûts, recettes, personnes, réglages | ✅ |
 | Créer un foyer | ✅ |
 | Scanner un code-barres | ✅ (lecture) |
+| Ticket de caisse (PDF ou texte collé) | ✅ (lu sur l'appareil) |
 | Recherche Open Food Facts | ❌ (saisie manuelle proposée) |
 | Photos des produits | ✅ si déjà affichées une fois |
 | Invitations, retrait d'accès, quitter un foyer | ❌ |
@@ -365,7 +396,8 @@ Quand une nouvelle version est disponible, un bandeau propose de mettre à jour 
 | Navigation du foyer | Barre en bas (Stock, Idées, Courses, Bilan, Personnes, Réglages) | Barre en bas | Barre latérale à gauche, avec le nom du foyer et un retour à *Mes foyers* |
 | Listes (foyers, stock, à commander, personnes, recettes, aliments à consommer) | 1 colonne | 2 colonnes | 2 colonnes (personnes : 3 sur grand écran) |
 | Filtres de rangement du stock | Défilement horizontal | Passage à la ligne | Passage à la ligne |
-| Ajout au stock | Boutons flottants *+ Manuel* / *Scanner* | Boutons flottants | Boutons dans l'en-tête de la page |
+| Ajout au stock | Boutons flottants *Ticket* / *+ Manuel* / *Scanner* | Boutons flottants | Boutons dans l'en-tête de la page |
+| Ticket de caisse | 1 colonne, *Ajouter au stock* fixé en bas | Lignes sur 2 colonnes | Lignes sur 2 colonnes, bouton en fin de liste |
 | Fiche produit | 1 colonne | 1 colonne | Informations et préférences du foyer à gauche (restent visibles au défilement), lots et historique à droite |
 | Bilan | 1 colonne | Rangements sur 2 colonnes | Favoris et activité à gauche, rangements à droite |
 | Réglages | 1 colonne | 1 colonne | Foyer, membres, zone sensible à gauche ; rangements et types à droite |
@@ -388,6 +420,7 @@ L'affichage mobile est la référence : les écrans plus larges réorganisent le
 | `/rejoindre/<jeton>` | Rejoindre un foyer |
 | `/foyer/<id>` | Stock |
 | `/foyer/<id>/produit/<id>` | Fiche produit |
+| `/foyer/<id>/ticket` | Ticket de caisse |
 | `/foyer/<id>/idees` | Idées |
 | `/foyer/<id>/courses` | À commander |
 | `/foyer/<id>/bilan` | Bilan |

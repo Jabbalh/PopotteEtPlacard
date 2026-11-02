@@ -20,7 +20,7 @@ const navItems = computed(() => {
   if (!householdId.value) return []
   const base = `/foyer/${householdId.value}`
   return [
-    { label: 'Stock', icon: 'i-lucide-refrigerator', to: base, exact: true, also: `${base}/produit` },
+    { label: 'Stock', icon: 'i-lucide-refrigerator', to: base, exact: true, also: [`${base}/produit`, `${base}/ticket`] },
     { label: 'Idées', icon: 'i-lucide-chef-hat', to: `${base}/idees` },
     { label: 'Courses', icon: 'i-lucide-shopping-cart', to: `${base}/courses` },
     { label: 'Bilan', icon: 'i-lucide-clipboard-list', to: `${base}/bilan` },
@@ -29,8 +29,8 @@ const navItems = computed(() => {
   ]
 })
 
-function isActive(item: { to: string, exact?: boolean, also?: string }) {
-  if (item.also && route.path.startsWith(item.also)) return true
+function isActive(item: { to: string, exact?: boolean, also?: string[] }) {
+  if (item.also?.some(p => route.path.startsWith(p))) return true
   return item.exact ? route.path === item.to : route.path.startsWith(item.to)
 }
 

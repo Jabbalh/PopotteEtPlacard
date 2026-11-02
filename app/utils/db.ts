@@ -138,6 +138,55 @@ export interface Recipe extends SyncFields, Timestamps, Owned {
   instructions: string
 }
 
+/** Libellé de ticket de caisse mémorisé pour un produit (product_id null = libellé à ignorer) */
+export interface ReceiptAlias extends SyncFields, Timestamps {
+  id: string
+  household_id: string
+  /** libellé normalisé (voir receiptKey) */
+  label: string
+  product_id: string | null
+}
+
+/** Nouveau produit à créer à la validation d'une ligne de ticket */
+export interface ReceiptNewProduct {
+  name: string
+  barcode: string | null
+  brand: string
+  description: string
+  ingredients: string
+  nutriscore: Nutriscore | null
+  image_url: string | null
+  unit: string
+  food_type_id: string | null
+}
+
+/**
+ * Ligne d'un ticket de caisse en attente (« stock temporaire ») : locale à l'appareil,
+ * jamais synchronisée ; supprimée une fois ajoutée au stock.
+ */
+export interface ReceiptLine {
+  id: string
+  household_id: string
+  position: number
+  /** libellé lu sur le ticket */
+  label: string
+  quantity: number
+  /** quantité lue en kg (article pesé) */
+  weighed: boolean
+  /** prix total de la ligne */
+  price: number | null
+  purchased_on: string
+  /** produit existant associé */
+  product_id: string | null
+  /** origine de l'association : libellé mémorisé, proposition, choix de l'utilisateur */
+  match: 'alias' | 'guess' | 'manual' | null
+  new_product: ReceiptNewProduct | null
+  ignored: boolean
+  location_id: string | null
+  expires_on: string | null
+  created_at: string
+}
+
 export interface Profile {
   id: string
   display_name: string
@@ -158,12 +207,14 @@ export type AppDb = Dexie & {
   movements: EntityTable<StockMovement, 'id'>
   preferences: EntityTable<Preference, 'id'>
   recipes: EntityTable<Recipe, 'id'>
+  receiptAliases: EntityTable<ReceiptAlias, 'id'>
+  receiptLines: EntityTable<ReceiptLine, 'id'>
   profiles: EntityTable<Profile, 'id'>
   meta: EntityTable<Meta, 'key'>
 }
 
 /** Tables synchronisées, dans l'ordre d'envoi (respect des clés étrangères) */
-export const SYNCED_TABLES = ['households', 'people', 'locations', 'foodTypes', 'products', 'stockItems', 'movements', 'preferences', 'recipes'] as const
+export const SYNCED_TABLES = ['households', 'people', 'locations', 'foodTypes', 'products', 'receiptAliases', 'stockItems', 'movements', 'preferences', 'recipes'] as const
 export type SyncedTable = typeof SYNCED_TABLES[number]
 
 const instances = new Map<string, AppDb>()
@@ -206,6 +257,11 @@ export function openDb(userId: string): AppDb {
       await tx.table('foodTypes').toCollection().modify((t: Partial<FoodType>) => {
         t.freezer_months ??= FREEZER_MONTHS[t.label ?? ''] ?? null
       })
+    })
+    // tickets de caisse : libellés mémorisés (synchronisés) et lignes en attente (locales)
+    db.version(4).stores({
+      receiptAliases: 'id, household_id, _dirty',
+      receiptLines: 'id, household_id'
     })
     instances.set(userId, db)
   }

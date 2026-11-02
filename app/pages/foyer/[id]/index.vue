@@ -10,6 +10,7 @@ const { household, loading } = useHousehold(householdId)
 const { locations, locationById, foodTypeById } = useHouseholdOptions(householdId)
 const { lots, loading: stockLoading } = useStock(householdId)
 const { opinionsOn } = useOpinions(householdId)
+const { pendingLines } = usePendingReceipt(householdId)
 
 /** Préférences du foyer sur un produit : une par personne (la plus forte), allergies d'abord */
 const LEVEL_ORDER = ['allergy', 'dislike', 'love', 'like']
@@ -118,6 +119,9 @@ function take(row: Row) {
       </div>
       <!-- PC : boutons d'ajout dans l'en-tête (boutons flottants sur mobile et tablette) -->
       <div class="hidden lg:flex items-center gap-2">
+        <UButton icon="i-lucide-receipt" color="neutral" variant="soft" :to="`/foyer/${householdId}/ticket`">
+          Ticket
+        </UButton>
         <UButton icon="i-lucide-plus" color="neutral" variant="soft" @click="openAdd(false)">
           Manuel
         </UButton>
@@ -135,6 +139,16 @@ function take(row: Row) {
         {{ sort === 'expiry' ? 'Péremption' : 'Nom' }}
       </UButton>
     </div>
+
+    <!-- Ticket de caisse en cours de saisie sur cet appareil -->
+    <UAlert
+      v-if="pendingLines"
+      icon="i-lucide-receipt"
+      color="warning"
+      variant="subtle"
+      :title="`Ticket de caisse en cours : ${pendingLines} article${pendingLines > 1 ? 's' : ''} en attente`"
+      :actions="[{ label: 'Continuer', to: `/foyer/${householdId}/ticket`, color: 'warning', variant: 'solid', size: 'xs' }]"
+    />
 
     <UInput v-model="search" icon="i-lucide-search" placeholder="Rechercher un aliment" class="w-full" :ui="{ trailing: 'pe-1' }">
       <template v-if="search" #trailing>
@@ -178,7 +192,8 @@ function take(row: Row) {
       description="Scannez le code-barres d'un produit ou saisissez-le pour commencer."
       :actions="[
         { label: 'Scanner', icon: 'i-lucide-scan-barcode', onClick: () => openAdd(true) },
-        { label: 'Manuel', icon: 'i-lucide-plus', color: 'neutral', variant: 'soft', onClick: () => openAdd(false) }
+        { label: 'Manuel', icon: 'i-lucide-plus', color: 'neutral', variant: 'soft', onClick: () => openAdd(false) },
+        { label: 'Ticket de caisse', icon: 'i-lucide-receipt', color: 'neutral', variant: 'soft', to: `/foyer/${householdId}/ticket` }
       ]"
     />
 
@@ -250,6 +265,9 @@ function take(row: Row) {
 
     <!-- Boutons d'ajout -->
     <div class="fixed z-20 right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] flex lg:hidden flex-col items-end gap-2">
+      <UButton icon="i-lucide-receipt" color="neutral" variant="solid" size="lg" class="rounded-full shadow-lg" :to="`/foyer/${householdId}/ticket`">
+        Ticket
+      </UButton>
       <UButton icon="i-lucide-plus" color="neutral" variant="solid" size="lg" class="rounded-full shadow-lg" @click="openAdd(false)">
         Manuel
       </UButton>

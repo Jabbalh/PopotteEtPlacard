@@ -55,6 +55,12 @@ const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
     byHousehold: true,
     byUser: false
   },
+  receiptAliases: {
+    remote: 'pp_receipt_aliases',
+    fields: ['id', 'household_id', 'label', 'product_id', 'created_at', 'deleted_at'],
+    byHousehold: true,
+    byUser: false
+  },
   stockItems: {
     remote: 'pp_stock_items',
     fields: ['id', 'household_id', 'product_id', 'location_id', 'quantity', 'purchased_on', 'expires_on', 'note', 'created_by', 'created_at', 'deleted_at'],
@@ -113,6 +119,7 @@ async function purgeHousehold(db: AppDb, householdId: string) {
     await tableOf(db, name).where('household_id').equals(householdId).delete()
     await db.meta.delete(`${name}:${householdId}`)
   }
+  await db.receiptLines.where('household_id').equals(householdId).delete()
 }
 
 /**

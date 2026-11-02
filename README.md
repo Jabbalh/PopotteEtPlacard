@@ -18,6 +18,7 @@ Le stock alimentaire du foyer (frigo, congélateur, placards…), les goûts de 
   - **Invitation** (`/rejoindre/<jeton>`, usage unique, gérée par le propriétaire) : lie un compte existant à une personne du foyer, qui obtient l'accès.
 - **Stock** : liste filtrable par rangement (Frigo, Congélateur, Autre… paramétrables par foyer), recherche, tri par péremption ou par nom. Chaque ligne indique les préférences des personnes du foyer (allergies et aversions d'abord) ; la fiche produit les détaille.
 - **Ajout d'un produit** (popin) : scan du code-barres (caméra) → recherche sur [Open Food Facts](https://world.openfoodfacts.org) (nom, description, composition, Nutri-Score, photo), ou saisie libre (seul le nom est obligatoire). Date d'achat (aujourd'hui par défaut), date de péremption, type d'aliment (paramétrable), rangement, quantité et unité, favori (1 à 5 étoiles). Un produit déjà connu du foyer est réutilisé.
+- **Ticket de caisse** : import du ticket dématérialisé (PDF lu sur l'appareil) ou d'un texte collé → liste d'articles en attente (libellé, quantité), à associer aux produits déjà achetés (propositions d'après le nom, abréviations comprises), par recherche, scan ou nouveau produit, puis ajout au stock en une fois. Les associations libellé → produit sont mémorisées pour tout le foyer.
 - **Sortie de stock** : utilisé, jeté ou offert, quantité ou totalité, date modifiable, annulable. **Correction d'inventaire** possible à tout moment (fiche produit → *Modifier / corriger*).
 - **Idées** :
   - recettes du foyer réalisables avec le stock (les plus complètes d'abord, puis les plus appréciées) ;
@@ -33,7 +34,7 @@ Le stock alimentaire du foyer (frigo, congélateur, placards…), les goûts de 
 L'application utilise **le même projet Supabase** que Pas ce soir :
 
 - **communs** : comptes (`auth.users`), `profiles`, `app_admins`, `app_invites`, `signup_allowlist` — un compte, un administrateur ou une invitation d'inscription vaut pour les deux applications ;
-- **propres à Popotte & Placard** : les tables préfixées `pp_` (`pp_households`, `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_stock_items`, `pp_stock_movements`, `pp_preferences`, `pp_recipes`) et les fonctions `pp_*` ;
+- **propres à Popotte & Placard** : les tables préfixées `pp_` (`pp_households`, `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_stock_items`, `pp_stock_movements`, `pp_preferences`, `pp_recipes`, `pp_receipt_aliases`) et les fonctions `pp_*` ;
 - la migration ajoute une politique de lecture sur `profiles` (voir les co-membres d'un foyer) sans modifier les existantes ;
 - supprimer son compte depuis Pas ce soir supprime aussi ses goûts de compte ; ses foyers sont conservés (sans propriétaire) et sa personne y reste, sans compte.
 

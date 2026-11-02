@@ -82,8 +82,8 @@ export default defineNuxtConfig({
     },
     workbox: {
       navigateFallback: '/',
-      // wasm : décodeur de codes-barres (iOS / Firefox), disponible hors connexion
-      globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2,wasm}'],
+      // wasm : décodeur de codes-barres (iOS / Firefox) ; mjs : lecteur PDF des tickets (pdf.js) ; disponibles hors connexion
+      globPatterns: ['**/*.{js,mjs,css,html,png,svg,ico,woff2,wasm}'],
       maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       // Les appels Supabase ne sont jamais mis en cache par le SW : la synchro est gérée par l'app (IndexedDB)
       navigateFallbackDenylist: [/^\/api\//],

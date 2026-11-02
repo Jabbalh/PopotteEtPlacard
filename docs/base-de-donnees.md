@@ -10,6 +10,7 @@ Migrations de l'application (dans l'ordre, dans le SQL Editor, **après** celles
 | [`20261015000000_preferences_barcode.sql`](../supabase/migrations/20261015000000_preferences_barcode.sql) | Code-barres des préférences d'aliments |
 | [`20261015120000_products_reorder.sql`](../supabase/migrations/20261015120000_products_reorder.sql) | Produits à commander (`reorder`, `ordered_at`) |
 | [`20261015130000_freezer_months.sql`](../supabase/migrations/20261015130000_freezer_months.sql) | Conservation au congélateur (`pp_locations.freezer`, `pp_food_types.freezer_months`) et valeurs initiales |
+| [`20261102100000_receipt_aliases.sql`](../supabase/migrations/20261102100000_receipt_aliases.sql) | Libellés de tickets de caisse mémorisés (`pp_receipt_aliases`) |
 
 Une migration qui ajoute une colonne synchronisée doit être exécutée **avant** le déploiement de l'application qui l'utilise.
 
@@ -62,6 +63,8 @@ erDiagram
     pp_households ||--o{ pp_products : ""
     pp_households ||--o{ pp_stock_items : ""
     pp_households ||--o{ pp_stock_movements : ""
+    pp_households ||--o{ pp_receipt_aliases : ""
+    pp_products ||--o{ pp_receipt_aliases : "product_id (nullable)"
 
     pp_food_types ||--o{ pp_products : "food_type_id"
     pp_products ||--o{ pp_stock_items : "product_id"
@@ -240,6 +243,21 @@ Index : `(household_id, updated_at)`, `(household_id, barcode)` partiel.
 
 `deleted_at` = sortie annulée (la quantité revient dans le stock).
 
+### `pp_receipt_aliases` — libellés de tickets de caisse
+
+Association mémorisée entre un libellé de ticket (sans code-barres) et un produit du foyer, pour reconnaître les tickets suivants.
+
+| Colonne | Type | Contraintes / défaut | Description |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `household_id` | uuid | not null → `pp_households` cascade | |
+| `label` | text | not null, non vide | Libellé normalisé (minuscules, sans accents, espaces simples) |
+| `product_id` | uuid | → `pp_products` **on delete cascade** | Produit associé ; **null = libellé à ignorer** (sac, article non alimentaire) |
+
+Pas de contrainte d'unicité sur `(household_id, label)` : deux appareils peuvent mémoriser le même libellé hors connexion ; le client retient la ligne la plus récente. Trigger `pp_touch`, RLS des tables rattachées à un foyer (membres). Index `(household_id, updated_at)`.
+
+Les lignes d'un ticket en attente ne sont **pas** en base : elles restent sur l'appareil (IndexedDB) jusqu'à leur ajout au stock.
+
 ### `pp_preferences` — préférences d'aliments
 
 | Colonne | Type | Contraintes / défaut | Description |
@@ -293,7 +311,7 @@ Ces deux dernières positionnent la variable de transaction `pp.trusted = on` po
 
 | Fonction | Tables | Effet |
 |---|---|---|
-| `pp_touch()` | `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_preferences`, `pp_recipes` | `updated_at = now()` ; `created_at` immuable |
+| `pp_touch()` | `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_receipt_aliases`, `pp_preferences`, `pp_recipes` | `updated_at = now()` ; `created_at` immuable |
 | `pp_touch_author()` | `pp_households`, `pp_stock_items`, `pp_stock_movements` | idem + `created_by = auth.uid()` à l'insertion, immuable ensuite (sauf mise à `null` par la cascade de suppression de compte) |
 | `pp_guard_household()` | `pp_households` (update) | Seul le propriétaire peut modifier `deleted_at` |
 | `pp_guard_person()` | `pp_people` (insert, update) | Voir § 5 |
@@ -329,7 +347,7 @@ RLS activée sur toutes les tables `pp_*`. Droits accordés à `authenticated` :
 | Table | Lecture | Insertion | Modification |
 |---|---|---|---|
 | `pp_households` | créateur ou membre | `created_by = auth.uid()` | membre (suppression : propriétaire, via trigger) |
-| `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_stock_items`, `pp_stock_movements` | membre du foyer | membre du foyer | membre du foyer (+ trigger pour `pp_people`) |
+| `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_receipt_aliases`, `pp_stock_items`, `pp_stock_movements` | membre du foyer | membre du foyer | membre du foyer (+ trigger pour `pp_people`) |
 | `pp_preferences`, `pp_recipes` | les miennes (`user_id = moi`) ; celles des comptes qui partagent un foyer avec moi ; celles des foyers dont je suis membre | `user_id = moi` ; ou niveau foyer : membre **et** personne du foyer | les miennes ; ou niveau foyer : membre (avec la même vérification de personne) |
 | `profiles` (ajout) | co-membres d'un foyer | — | — |
 
