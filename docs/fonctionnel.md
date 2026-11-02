@@ -177,7 +177,8 @@ Règles :
 - **Note de favori** (0 à 5 étoiles), enregistrée immédiatement.
 - **À commander quand épuisé** (interrupteur, enregistré immédiatement) ; sous le seuil, encart *À commander* avec le bouton *Commandé* (voir § 11).
 - **Préférences du foyer** : les personnes qui ont une préférence sur cet aliment, avec la préférence telle qu'elle l'a saisie (ex. « Nutella »), son niveau, et son origine (goût du compte ou propre au foyer). Allergies et aversions d'abord. Rapprochement par code-barres (icône), sinon par le nom. Toucher une ligne ouvre la fiche de la personne.
-- **Lots en stock** : quantité restante (et initiale), rangement, date d'achat, péremption ; actions *Retirer* et *Modifier / corriger*.
+- **Lots en stock** : quantité restante (et initiale), rangement, date d'achat, prix payé s'il est connu, péremption ; actions *Retirer* et *Modifier / corriger* (dont le prix).
+- **Historique des prix** (si au moins un lot a un prix) : chaque achat, épuisé compris, avec sa date, sa quantité, le prix payé et le prix unitaire (€/kg pour un produit en g, €/L en ml ou cl) ; à partir de deux achats, dernier prix, prix le plus bas (avec sa date) et moyenne pondérée par les quantités.
 - **Alerte rupture** pour un favori ou un produit à commander dont le stock est sous le seuil.
 - **Historique** des sorties (type, quantité, recette, date, auteur, note), chaque sortie pouvant être annulée.
 - **Modifier le produit** : nom, marque, description, composition, Nutri-Score, type, unité, seuil d'alerte rupture (favoris et produits à commander).
@@ -208,6 +209,7 @@ La popin s'ouvre depuis le stock, la fiche produit (ajout d'un lot), le bilan (r
 | Unité | | pièce (g, kg, ml, cl, L, paquet, boîte, bouteille, pot, sachet, tranche) |
 | Date d'achat | | Aujourd'hui |
 | Date de péremption | | Vide (au congélateur : date limite selon le type, voir ci-dessous) |
+| Prix payé | | Vide (facultatif) ; prix total du lot, le prix unitaire est affiché si la quantité n'est pas 1 |
 | Type d'aliment | | Vide |
 | Rangé dans | | Rangement filtré dans la liste, sinon le premier |
 
@@ -259,7 +261,7 @@ Les articles forment une liste enregistrée **sur l'appareil** : on peut la comp
 | Ignoré | Sac, consigne, article non alimentaire… (*Rétablir* pour annuler) |
 
 - La comparaison des noms comprend les abréviations des tickets (« ECR » → écrémé, « PRES » → Président, « 1/2 » → demi) et s'appuie aussi sur les autres libellés déjà associés à un produit.
-- Quantité modifiable (en kg pour un article pesé, convertie en grammes si le produit se compte en g), péremption facultative, rangement (celui du dernier lot du produit, sinon le premier). Au congélateur, la date limite est proposée selon le type d'aliment, comme à l'ajout d'un produit.
+- Quantité modifiable (en kg pour un article pesé, convertie en grammes si le produit se compte en g), **prix payé** (lu sur le ticket, modifiable ou effaçable ; enregistré sur le lot pour l'historique des prix), péremption facultative, rangement (celui du dernier lot du produit, sinon le premier). Au congélateur, la date limite est proposée selon le type d'aliment, comme à l'ajout d'un produit.
 - **Ajouter au stock** : crée un lot pour chaque ligne prête (et les nouveaux produits), puis les retire de la liste ; les lignes à compléter restent. Les associations libellé → produit, et les libellés ignorés, sont **mémorisées pour tout le foyer** : le ticket suivant les reconnaît, quel que soit le membre qui l'importe.
 - **Tout effacer** vide la liste sans rien ajouter.
 

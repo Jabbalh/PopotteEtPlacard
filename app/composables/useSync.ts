@@ -63,7 +63,7 @@ const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
   },
   stockItems: {
     remote: 'pp_stock_items',
-    fields: ['id', 'household_id', 'product_id', 'location_id', 'quantity', 'purchased_on', 'expires_on', 'note', 'created_by', 'created_at', 'deleted_at'],
+    fields: ['id', 'household_id', 'product_id', 'location_id', 'quantity', 'purchased_on', 'expires_on', 'price', 'note', 'created_by', 'created_at', 'deleted_at'],
     byHousehold: true,
     byUser: false
   },

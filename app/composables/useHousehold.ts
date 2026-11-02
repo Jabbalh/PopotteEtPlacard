@@ -56,6 +56,8 @@ export interface StockItemInput {
   quantity: number
   purchased_on: string
   expires_on: string | null
+  /** prix total payé, en euros */
+  price?: number | null
   note?: string
 }
 
@@ -182,7 +184,7 @@ export function useHouseholdActions() {
     patch(db.products, id, changes as Partial<Product>)
 
   async function addStockItem(householdId: string, input: StockItemInput) {
-    const item: StockItem = { ...base(), household_id: householdId, note: '', created_by: user.value!.id, ...input }
+    const item: StockItem = { ...base(), household_id: householdId, note: '', price: null, created_by: user.value!.id, ...input }
     await db.stockItems.add(item)
     schedule()
     return item

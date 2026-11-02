@@ -85,6 +85,8 @@ export interface StockItem extends SyncFields, Timestamps {
   quantity: number
   purchased_on: string
   expires_on: string | null
+  /** prix total payé pour le lot, en euros (facultatif ; absent sur les lots antérieurs) */
+  price?: number | null
   note: string
   created_by: string | null
 }

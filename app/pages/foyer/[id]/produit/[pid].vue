@@ -99,7 +99,7 @@ function take(lot: Lot) {
 /** Modification d'un lot : lieu, dates, et correction de la quantité restante (inventaire) */
 const lotOpen = ref(false)
 const lotEdit = reactive({
-  id: '', location_id: undefined as string | undefined, purchased_on: '', expires_on: '', remaining: 0 as number | null, current: 0,
+  id: '', location_id: undefined as string | undefined, purchased_on: '', expires_on: '', price: null as number | null, remaining: 0 as number | null, current: 0,
   /** rangement et péremption à l'ouverture (transfert vers le congélateur) */
   initialLocation: null as string | null, initialExpiry: ''
 })
@@ -110,6 +110,7 @@ function openLot(lot: Lot) {
     location_id: lot.item.location_id ?? undefined,
     purchased_on: lot.item.purchased_on,
     expires_on: lot.item.expires_on ?? '',
+    price: lot.item.price ?? null,
     remaining: lot.remaining,
     current: lot.remaining,
     initialLocation: lot.item.location_id,
@@ -138,7 +139,8 @@ async function saveLot() {
   await updateStockItem(lotEdit.id, {
     location_id: lotEdit.location_id ?? null,
     purchased_on: lotEdit.purchased_on || todayKey(),
-    expires_on: lotEdit.expires_on || null
+    expires_on: lotEdit.expires_on || null,
+    price: lotEdit.price ?? null
   })
   const target = Math.max(0, lotEdit.remaining ?? 0)
   if (target !== lotEdit.current) {
@@ -159,6 +161,29 @@ async function deleteLot() {
     actions: [{ label: 'Annuler', color: 'neutral', variant: 'outline', onClick: () => updateStockItem(id, { deleted_at: null }) }]
   })
 }
+
+/** Historique des prix : lots avec un prix (épuisés compris), du plus récent au plus ancien */
+const priceHistory = computed(() => {
+  const unit = product.value?.unit ?? 'pièce'
+  return productLots.value
+    .filter(l => l.item.price !== null && l.item.price !== undefined)
+    .map(l => ({ lot: l, price: Number(l.item.price), unitPrice: unitPrice(Number(l.item.price), Number(l.item.quantity), unit) }))
+    .sort((a, b) => b.lot.item.purchased_on.localeCompare(a.lot.item.purchased_on) || b.lot.item.created_at.localeCompare(a.lot.item.created_at))
+})
+/** Dernier prix unitaire, minimum et moyenne (pondérée par les quantités) */
+const priceStats = computed(() => {
+  const rows = priceHistory.value.filter(r => r.unitPrice)
+  if (!rows.length || !product.value) return null
+  const quantity = rows.reduce((s, r) => s + Number(r.lot.item.quantity), 0)
+  const spent = rows.reduce((s, r) => s + r.price, 0)
+  const min = rows.reduce((m, r) => (r.unitPrice!.value < m.unitPrice!.value ? r : m))
+  return {
+    last: rows[0]!,
+    min,
+    average: unitPrice(spent, quantity, product.value.unit)!,
+    count: rows.length
+  }
+})
 
 async function cancelMovement(id: string) {
   await cancelMovements([id])
@@ -299,6 +324,9 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
                     {{ locationById.get(lot.item.location_id)!.label }} ·
                   </template>
                   acheté le {{ formatDate(lot.item.purchased_on) }}
+                  <template v-if="lot.item.price !== null && lot.item.price !== undefined">
+                    · {{ formatPrice(Number(lot.item.price)) }}
+                  </template>
                   <UIcon v-if="lot.item._dirty" name="i-lucide-cloud-upload" class="size-3 text-warning ml-1" />
                 </p>
               </div>
@@ -318,6 +346,59 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
           <p v-if="!activeLots.length" class="text-sm text-muted text-center py-4 rounded-xl border border-dashed border-default">
             Plus rien en stock.
           </p>
+        </section>
+
+        <!-- Historique des prix -->
+        <section v-if="priceHistory.length" class="space-y-2">
+          <h2 class="font-semibold">
+            Historique des prix
+          </h2>
+          <div v-if="priceStats && priceStats.count > 1" class="grid grid-cols-3 gap-2 text-center">
+            <div class="p-2 rounded-xl border border-default bg-elevated/40">
+              <p class="text-xs text-muted">
+                Dernier
+              </p>
+              <p class="font-semibold text-sm">
+                {{ priceStats.last.unitPrice!.label }}
+              </p>
+            </div>
+            <div class="p-2 rounded-xl border border-default bg-elevated/40">
+              <p class="text-xs text-muted">
+                Le moins cher
+              </p>
+              <p class="font-semibold text-sm">
+                {{ priceStats.min.unitPrice!.label }}
+              </p>
+              <p class="text-[11px] text-muted">
+                {{ formatDate(priceStats.min.lot.item.purchased_on) }}
+              </p>
+            </div>
+            <div class="p-2 rounded-xl border border-default bg-elevated/40">
+              <p class="text-xs text-muted">
+                Moyenne
+              </p>
+              <p class="font-semibold text-sm">
+                {{ priceStats.average.label }}
+              </p>
+            </div>
+          </div>
+          <ul class="divide-y divide-default rounded-xl border border-default">
+            <li v-for="r in priceHistory" :key="r.lot.item.id" class="flex items-center gap-3 px-3 py-2">
+              <UIcon name="i-lucide-receipt-euro" class="size-4 text-muted shrink-0" />
+              <div class="flex-1 min-w-0">
+                <p class="text-sm">
+                  <strong>{{ formatPrice(r.price) }}</strong>
+                  <span class="text-muted"> · {{ formatQuantity(Number(r.lot.item.quantity), product.unit) }}</span>
+                </p>
+                <p class="text-xs text-muted">
+                  {{ formatDate(r.lot.item.purchased_on) }}
+                </p>
+              </div>
+              <span v-if="r.unitPrice && Number(r.lot.item.quantity) !== 1" class="text-xs text-muted shrink-0">
+                {{ r.unitPrice.label }}
+              </span>
+            </li>
+          </ul>
         </section>
 
         <!-- Historique -->
@@ -431,6 +512,17 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
             </UFormField>
             <UFormField label="Péremption">
               <UInput v-model="lotEdit.expires_on" type="date" class="w-full" />
+            </UFormField>
+            <UFormField label="Prix payé" hint="Facultatif">
+              <UInputNumber
+                v-model="lotEdit.price"
+                :min="0"
+                :step="0.01"
+                :step-snapping="false"
+                :format-options="{ style: 'currency', currency: 'EUR' }"
+                placeholder="—"
+                class="w-full"
+              />
             </UFormField>
           </div>
           <p v-if="lotFreezer" class="-mt-2 text-xs text-muted flex items-start gap-1">

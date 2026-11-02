@@ -70,6 +70,26 @@ export function formatQuantity(q: number, unit: string): string {
   return `${value} ${unit}`
 }
 
+/** Prix en euros : 5,63 € */
+export function formatPrice(price: number): string {
+  return price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+}
+
+/** Unités ramenées à une unité de référence pour le prix unitaire (€/kg plutôt que €/g) */
+const PRICE_UNITS: Record<string, { unit: string, factor: number }> = {
+  g: { unit: 'kg', factor: 1000 },
+  ml: { unit: 'L', factor: 1000 },
+  cl: { unit: 'L', factor: 100 }
+}
+
+/** Prix unitaire d'un lot (prix total / quantité) : valeur et libellé (« 11,26 €/kg ») ; null sans prix ni quantité */
+export function unitPrice(price: number | null | undefined, quantity: number, unit: string): { value: number, unit: string, label: string } | null {
+  if (price === null || price === undefined || !(quantity > 0)) return null
+  const ref = PRICE_UNITS[unit] ?? { unit, factor: 1 }
+  const value = (price / quantity) * ref.factor
+  return { value, unit: ref.unit, label: `${formatPrice(value)}/${ref.unit}` }
+}
+
 export const UNITS = ['pièce', 'g', 'kg', 'ml', 'cl', 'L', 'paquet', 'boîte', 'bouteille', 'pot', 'sachet', 'tranche']
 
 export const MOVEMENT_KINDS: { value: Exclude<MovementKind, 'adjusted'>, label: string, past: string, icon: string, color: 'primary' | 'error' | 'success' }[] = [

@@ -11,6 +11,7 @@ Migrations de l'application (dans l'ordre, dans le SQL Editor, **après** celles
 | [`20261015120000_products_reorder.sql`](../supabase/migrations/20261015120000_products_reorder.sql) | Produits à commander (`reorder`, `ordered_at`) |
 | [`20261015130000_freezer_months.sql`](../supabase/migrations/20261015130000_freezer_months.sql) | Conservation au congélateur (`pp_locations.freezer`, `pp_food_types.freezer_months`) et valeurs initiales |
 | [`20261102100000_receipt_aliases.sql`](../supabase/migrations/20261102100000_receipt_aliases.sql) | Libellés de tickets de caisse mémorisés (`pp_receipt_aliases`) |
+| [`20261102110000_stock_items_price.sql`](../supabase/migrations/20261102110000_stock_items_price.sql) | Prix payé des lots (`pp_stock_items.price`), historique des prix |
 
 Une migration qui ajoute une colonne synchronisée doit être exécutée **avant** le déploiement de l'application qui l'utilise.
 
@@ -106,6 +107,7 @@ erDiagram
         numeric quantity "initiale"
         date purchased_on
         date expires_on
+        numeric price "nullable"
     }
     pp_stock_movements {
         uuid id PK
@@ -224,6 +226,7 @@ Index : `(household_id, updated_at)`, `(household_id, barcode)` partiel.
 | `quantity` | numeric | not null, ≥ 0 | Quantité **initiale** |
 | `purchased_on` | date | not null, défaut `current_date` | |
 | `expires_on` | date | | Péremption |
+| `price` | numeric | ≥ 0 ou null | Prix total payé pour le lot (€ TTC), facultatif ; avec `purchased_on`, historique des prix du produit |
 | `note` | text | not null, défaut `''` | |
 | `created_by` | uuid | → `profiles` on delete set null | Forcé à l'utilisateur connecté |
 

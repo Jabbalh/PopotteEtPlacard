@@ -81,6 +81,17 @@ const quantity = computed({
   set: (v: number | null) => update({ quantity: v ?? 0 })
 })
 
+/** prix total de la ligne (lu sur le ticket, modifiable, facultatif) */
+const price = computed({
+  get: () => line.value.price,
+  set: (v: number | null) => update({ price: v ?? null })
+})
+/** prix unitaire, si la quantité n'est pas 1 (ex. 3 yaourts, article pesé) */
+const lotUnitPrice = computed(() => {
+  const q = lineQuantity(line.value, unit.value)
+  return q !== 1 ? unitPrice(line.value.price, q, unit.value) : null
+})
+
 const locationId = computed(() => r.locationOf(line.value))
 const freezer = computed(() => r.freezerLimitOf(line.value))
 const foodTypeItems = computed(() => r.foodTypes.value.map(t => ({ label: t.label, value: t.id })))
@@ -103,8 +114,8 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
         <p class="font-mono text-sm break-words" :class="{ 'line-through': line.ignored }">
           {{ line.label }}
         </p>
-        <p v-if="line.price !== null" class="text-xs text-muted">
-          {{ line.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) }}
+        <p v-if="line.ignored && line.price !== null" class="text-xs text-muted">
+          {{ formatPrice(line.price) }}
         </p>
       </div>
       <UButton
@@ -233,6 +244,17 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
       <div class="grid grid-cols-2 gap-2">
         <UFormField :label="`Quantité (${unit === 'pièce' ? 'pièces' : unit})`">
           <UInputNumber v-model="quantity" :min="0" :step="1" :step-snapping="false" class="w-full" />
+        </UFormField>
+        <UFormField label="Prix payé" :hint="lotUnitPrice ? lotUnitPrice.label : undefined">
+          <UInputNumber
+            v-model="price"
+            :min="0"
+            :step="0.01"
+            :step-snapping="false"
+            :format-options="{ style: 'currency', currency: 'EUR' }"
+            placeholder="—"
+            class="w-full"
+          />
         </UFormField>
         <UFormField label="Péremption">
           <UInput :model-value="line.expires_on ?? ''" type="date" class="w-full" @update:model-value="v => update({ expires_on: String(v) || null })" />

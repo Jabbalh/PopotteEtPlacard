@@ -46,6 +46,8 @@ function emptyForm() {
     quantity: 1 as number | null,
     purchased_on: todayKey(),
     expires_on: '',
+    /** prix total payé (facultatif) */
+    price: null as number | null,
     location_id: undefined as string | undefined
   }
 }
@@ -105,7 +107,7 @@ function useExisting(p: Product) {
 }
 
 function clearExisting() {
-  const keep = { purchased_on: form.purchased_on, expires_on: form.expires_on, location_id: form.location_id, quantity: form.quantity }
+  const keep = { purchased_on: form.purchased_on, expires_on: form.expires_on, location_id: form.location_id, quantity: form.quantity, price: form.price }
   Object.assign(form, emptyForm(), keep)
   existing.value = null
 }
@@ -188,7 +190,8 @@ async function save() {
       location_id: form.location_id ?? null,
       quantity: form.quantity!,
       purchased_on: form.purchased_on || todayKey(),
-      expires_on: form.expires_on || null
+      expires_on: form.expires_on || null,
+      price: form.price ?? null
     })
     toast.add({ title: `${product.name} ajouté au stock`, icon: 'i-lucide-check', color: 'success', duration: 2500 })
     open.value = false
@@ -331,6 +334,20 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
             <UFormField label="Péremption">
               <UInput v-model="form.expires_on" type="date" class="w-full" />
             </UFormField>
+            <UFormField label="Prix payé" hint="Facultatif">
+              <UInputNumber
+                v-model="form.price"
+                :min="0"
+                :step="0.01"
+                :step-snapping="false"
+                :format-options="{ style: 'currency', currency: 'EUR' }"
+                placeholder="—"
+                class="w-full"
+              />
+            </UFormField>
+            <p v-if="form.price && unitPrice(form.price, form.quantity ?? 0, form.unit) && (form.quantity ?? 0) !== 1" class="self-end pb-2 text-xs text-muted">
+              soit {{ unitPrice(form.price, form.quantity ?? 0, form.unit)!.label }}
+            </p>
           </div>
           <p v-if="freezerLimit" class="-mt-3 text-xs text-muted flex items-start gap-1">
             <UIcon name="i-lucide-snowflake" class="size-3.5 shrink-0 mt-px text-info" />

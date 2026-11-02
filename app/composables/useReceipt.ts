@@ -173,6 +173,7 @@ export function useReceipt(householdId: Ref<string>) {
         quantity: lineQuantity(line, product.unit),
         purchased_on: line.purchased_on,
         expires_on: line.expires_on || freezer?.date || null,
+        price: line.price,
         note: ''
       })
       await remember(line.label, product.id)

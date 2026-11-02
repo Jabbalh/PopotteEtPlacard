@@ -190,6 +190,7 @@ Une ligne reçue n'écrase **jamais** une ligne locale `_dirty`. Le recouvrement
 - `restant(lot) = quantity − Σ movements.quantity` (sorties non supprimées), arrondi au millième.
 - `lots` : lots dont le restant est > 0, triés par `expires_on` croissant (sans date en dernier).
 - `byProduct` : tous les produits non supprimés avec total, lots et péremption la plus proche (sert aux ruptures).
+- Prix : `stockItems.price` (prix total du lot, facultatif, absent des lignes antérieures : pas de montée de version Dexie, la synchro envoie `null`). `unitPrice(prix, quantité, unité)` (`utils/format.ts`) ramène g → €/kg, ml et cl → €/L. Fiche produit : historique = lots avec prix (épuisés compris), moyenne = Σ prix / Σ quantités.
 - Un ajustement d'inventaire crée un mouvement `adjusted` de quantité `restant actuel − restant voulu` (négatif = ajout).
 - `toOrder` : produits `reorder` dont le total est ≤ `low_threshold`, rupture d'abord puis non commandés. `isOrdered(p)` : `ordered_at` renseigné et postérieur au `created_at` du dernier lot du produit (lots épuisés compris) ; ajouter un lot suffit donc à lever le statut, sans écriture supplémentaire.
 
