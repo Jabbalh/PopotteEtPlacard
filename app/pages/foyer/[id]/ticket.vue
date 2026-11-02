@@ -43,13 +43,36 @@ const fileInput = ref<HTMLInputElement | null>(null)
 
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`
 
-/** Ajoute les autres lignes du ticket (non reconnues comme articles), à valider ou exclure */
-async function addOthers(others: ReceiptItem[]) {
-  const r = await receipt.importItems(others, purchasedOn.value)
+// --- Lignes non reconnues comme articles (en-tête, totaux, paiement… ou article mal lu) ---
+/** conservées pendant la session (retour sur la page compris) pour en intégrer certaines */
+const others = useState<ReceiptItem[]>(`pep:receiptOthers:${householdId.value}`, () => [])
+const othersOpen = ref(false)
+const othersSelected = ref<Set<number>>(new Set())
+
+function openOthers() {
+  othersSelected.value = new Set()
+  othersOpen.value = true
+}
+
+function toggleOther(i: number, checked: boolean | 'indeterminate') {
+  const next = new Set(othersSelected.value)
+  if (checked === true) next.add(i)
+  else next.delete(i)
+  othersSelected.value = next
+}
+
+/** Ajoute les lignes cochées à la liste du ticket, et les retire des lignes non reconnues */
+async function addSelectedOthers() {
+  const picked = others.value.filter((_, i) => othersSelected.value.has(i))
+  if (!picked.length) return
+  const r = await receipt.importItems(picked, linesDate.value ?? purchasedOn.value)
+  others.value = others.value.filter((_, i) => !othersSelected.value.has(i))
+  othersOpen.value = false
   toast.add({
     title: `${plural(r.added, 'ligne')} ajoutée${r.added > 1 ? 's' : ''} à la liste`,
-    description: 'Excluez celles qui ne sont pas des articles (Ignorer ou ×).',
-    icon: 'i-lucide-list-plus'
+    description: 'Associez-les à un produit comme les autres articles.',
+    icon: 'i-lucide-list-plus',
+    color: 'success'
   })
 }
 
@@ -63,6 +86,7 @@ async function addParsed(parsed: ParsedReceipt, source: string) {
 
   // aucun article reconnu : toutes les lignes sont listées, l'utilisateur valide ou exclut
   if (!parsed.items.length) {
+    others.value = []
     const r = await receipt.importItems(parsed.others, purchasedOn.value)
     toast.add({
       title: 'Aucun article reconnu',
@@ -81,15 +105,16 @@ async function addParsed(parsed: ParsedReceipt, source: string) {
     r.ignored && `${r.ignored} ignoré${r.ignored > 1 ? 's' : ''}`,
     parsed.date && `ticket du ${formatDate(parsed.date)}`
   ].filter(Boolean).join(' · ')
-  const others = parsed.others
+  const rest = parsed.others
+  others.value = rest
   toast.add({
     title: `${plural(r.added, 'article')} ajouté${r.added > 1 ? 's' : ''} à la liste`,
-    description: [details, others.length ? `${plural(others.length, 'autre ligne')} non reconnue${others.length > 1 ? 's' : ''} (totaux, paiement… ou article oublié).` : ''].filter(Boolean).join('. ') || undefined,
+    description: [details, rest.length ? `${plural(rest.length, 'autre ligne')} non reconnue${rest.length > 1 ? 's' : ''} (totaux, paiement… ou article oublié).` : ''].filter(Boolean).join('. ') || undefined,
     icon: 'i-lucide-receipt',
     color: 'success',
-    duration: others.length ? 10000 : 5000,
-    actions: others.length
-      ? [{ label: 'Les lister aussi', icon: 'i-lucide-list-plus', color: 'neutral', variant: 'outline', onClick: () => { addOthers(others) } }]
+    duration: rest.length ? 10000 : 5000,
+    actions: rest.length
+      ? [{ label: 'Voir les lignes', icon: 'i-lucide-list-checks', color: 'neutral', variant: 'outline', onClick: openOthers }]
       : undefined
   })
 }
@@ -193,7 +218,10 @@ async function validate() {
       icon: 'i-lucide-check',
       color: 'success'
     })
-    if (!lines.value.length) await navigateTo(`/foyer/${householdId.value}`)
+    if (!lines.value.length) {
+      others.value = []
+      await navigateTo(`/foyer/${householdId.value}`)
+    }
   } catch (e) {
     toast.add({ title: 'Ajout impossible', description: errorMessage(e), color: 'error' })
   } finally {
@@ -204,6 +232,7 @@ async function validate() {
 const confirmClear = ref(false)
 async function clearAll() {
   await receipt.clear()
+  others.value = []
   confirmClear.value = false
 }
 </script>
@@ -273,6 +302,9 @@ async function clearAll() {
           {{ counts.ignored }} ignoré{{ counts.ignored > 1 ? 's' : '' }}
         </UBadge>
         <span class="flex-1" />
+        <UButton v-if="others.length" size="xs" color="neutral" variant="ghost" icon="i-lucide-list-checks" @click="openOthers">
+          {{ others.length }} non reconnue{{ others.length > 1 ? 's' : '' }}
+        </UButton>
         <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" @click="confirmClear = true">
           Tout effacer
         </UButton>
@@ -334,6 +366,36 @@ async function clearAll() {
     <UModal v-model:open="scanOpen" title="Scanner l'article">
       <template #body>
         <BarcodeScanner v-if="scanOpen" @detected="onDetected" @cancel="scanLineId = null" />
+      </template>
+    </UModal>
+
+    <!-- Lignes non reconnues : en intégrer certaines -->
+    <UModal
+      v-model:open="othersOpen"
+      title="Lignes non reconnues"
+      description="Cochez celles qui sont des articles pour les ajouter à la liste."
+      :ui="{ content: 'max-h-[92dvh]', body: 'overflow-y-auto' }"
+    >
+      <template #body>
+        <ul class="divide-y divide-default rounded-xl border border-default">
+          <li v-for="(o, i) in others" :key="i">
+            <label class="flex items-center gap-3 px-3 py-2 cursor-pointer">
+              <UCheckbox :model-value="othersSelected.has(i)" @update:model-value="v => toggleOther(i, v)" />
+              <span class="flex-1 min-w-0 font-mono text-sm break-words">{{ o.label }}</span>
+              <span v-if="o.price !== null" class="text-xs text-muted shrink-0">{{ formatPrice(o.price) }}</span>
+            </label>
+          </li>
+        </ul>
+      </template>
+      <template #footer>
+        <div class="flex gap-2 w-full">
+          <UButton color="neutral" variant="ghost" class="flex-1 justify-center" @click="othersOpen = false">
+            Fermer
+          </UButton>
+          <UButton class="flex-1 justify-center" icon="i-lucide-list-plus" :disabled="!othersSelected.size" @click="addSelectedOthers">
+            Ajouter{{ othersSelected.size ? ` (${othersSelected.size})` : '' }}
+          </UButton>
+        </div>
       </template>
     </UModal>
 
