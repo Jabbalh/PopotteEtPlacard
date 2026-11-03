@@ -21,11 +21,12 @@ const counts = computed(() => {
   return c
 })
 
-/** Montant total du ticket : somme des prix de toutes les lignes (ignorées comprises, elles ont été payées) */
+/** Montant total du ticket : somme des prix des lignes non ignorées */
 const total = computed(() => {
   let sum = 0
   let missing = 0
   for (const l of lines.value) {
+    if (l.ignored) continue
     if (l.price === null) missing++
     else sum += Number(l.price)
   }
