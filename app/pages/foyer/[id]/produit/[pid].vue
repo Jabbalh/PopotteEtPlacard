@@ -5,6 +5,8 @@ import type { Nutriscore } from '~/utils/db'
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const db = useDb()
+const { online } = useSync()
 const householdId = computed(() => route.params.id as string)
 const productId = computed(() => route.params.pid as string)
 
@@ -51,6 +53,7 @@ const setOrdered = (v: boolean) => updateProduct(productId.value, { ordered_at: 
 // --- Modification du produit ---
 const editOpen = ref(false)
 const form = reactive({
+  barcode: '', image_url: null as string | null,
   name: '', brand: '', description: '', ingredients: '',
   nutriscore: null as Nutriscore | null, food_type_id: undefined as string | undefined,
   unit: 'pièce', low_threshold: 1 as number | null
@@ -58,16 +61,64 @@ const form = reactive({
 
 function openEdit() {
   const p = product.value!
+  scanning.value = false
   Object.assign(form, {
+    barcode: p.barcode ?? '', image_url: p.image_url,
     name: p.name, brand: p.brand, description: p.description, ingredients: p.ingredients,
     nutriscore: p.nutriscore, food_type_id: p.food_type_id ?? undefined, unit: p.unit, low_threshold: p.low_threshold
   })
   editOpen.value = true
 }
 
+/** Code-barres saisi : vide, ou 8 à 14 chiffres (EAN / UPC) */
+const barcodeValid = computed(() => /^(\d{8,14})?$/.test(form.barcode.trim()))
+
+// --- Scan du code-barres depuis la modification : complète les infos via Open Food Facts ---
+const scanning = ref(false)
+const lookingUp = ref(false)
+
+async function onDetected(code: string) {
+  scanning.value = false
+  // un code-barres ne désigne qu'un produit du foyer, sinon le scan au stock serait ambigu
+  const other = await db.products.where('[household_id+barcode]').equals([householdId.value, code])
+    .filter(p => !p.deleted_at && p.id !== productId.value).first()
+  if (other) {
+    toast.add({ title: 'Code-barres déjà utilisé', description: `Il est associé au produit « ${other.name} ».`, icon: 'i-lucide-scan-barcode', color: 'warning' })
+    return
+  }
+  form.barcode = code
+  if (!online.value) {
+    toast.add({ title: 'Code-barres ajouté', description: 'Hors connexion : les informations du produit n\'ont pas pu être récupérées.', icon: 'i-lucide-wifi-off', color: 'warning' })
+    return
+  }
+  lookingUp.value = true
+  try {
+    const off = await fetchOffProduct(code)
+    if (!off) {
+      toast.add({ title: 'Code-barres ajouté', description: 'Produit non référencé sur Open Food Facts : complétez les informations.', color: 'warning' })
+      return
+    }
+    // les informations trouvées remplacent les actuelles ; rien n'est enregistré avant validation
+    Object.assign(form, {
+      name: off.name || form.name,
+      brand: off.brand || form.brand,
+      description: off.description || form.description,
+      ingredients: off.ingredients || form.ingredients,
+      nutriscore: off.nutriscore ?? form.nutriscore,
+      image_url: off.image_url ?? form.image_url
+    })
+    toast.add({ title: 'Informations récupérées', description: 'Vérifiez-les puis enregistrez.', icon: 'i-lucide-scan-barcode', color: 'success', duration: 3000 })
+  } catch (e) {
+    toast.add({ title: 'Recherche impossible', description: errorMessage(e), color: 'warning' })
+  } finally {
+    lookingUp.value = false
+  }
+}
+
 async function saveEdit() {
-  if (!form.name.trim()) return
+  if (!form.name.trim() || !barcodeValid.value) return
   await updateProduct(productId.value, {
+    barcode: form.barcode.trim() || null, image_url: form.image_url,
     name: form.name.trim(), brand: form.brand.trim(), description: form.description.trim(), ingredients: form.ingredients.trim(),
     nutriscore: form.nutriscore, food_type_id: form.food_type_id ?? null, unit: form.unit, low_threshold: form.low_threshold ?? 0
   })
@@ -444,7 +495,24 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
     <!-- Modifier le produit -->
     <UModal v-model:open="editOpen" title="Modifier le produit" :ui="{ content: 'max-h-[92dvh]', body: 'overflow-y-auto' }">
       <template #body>
-        <form id="edit-product" class="space-y-4" @submit.prevent="saveEdit">
+        <BarcodeScanner v-if="scanning" @detected="onDetected" @cancel="scanning = false" />
+        <form v-show="!scanning" id="edit-product" class="space-y-4" @submit.prevent="saveEdit">
+          <UButton
+            block
+            color="neutral"
+            variant="soft"
+            icon="i-lucide-scan-barcode"
+            :loading="lookingUp"
+            @click="scanning = true"
+          >
+            {{ lookingUp ? 'Recherche du produit…' : form.barcode ? 'Scanner à nouveau le code-barres' : 'Scanner le code-barres' }}
+          </UButton>
+          <div class="flex items-center gap-3">
+            <img v-if="form.image_url" :src="form.image_url" alt="" class="size-14 rounded-lg object-contain bg-white shrink-0">
+            <UFormField label="Code-barres" :error="barcodeValid ? undefined : '8 à 14 chiffres'" class="flex-1">
+              <UInput v-model="form.barcode" inputmode="numeric" placeholder="Aucun" class="w-full" />
+            </UFormField>
+          </div>
           <UFormField label="Nom" required>
             <UInput v-model="form.name" class="w-full" required />
           </UFormField>
@@ -489,7 +557,7 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
           <UButton color="neutral" variant="ghost" class="flex-1 justify-center" @click="editOpen = false">
             Annuler
           </UButton>
-          <UButton type="submit" form="edit-product" class="flex-1 justify-center" :disabled="!form.name.trim()">
+          <UButton type="submit" form="edit-product" class="flex-1 justify-center" :disabled="!form.name.trim() || !barcodeValid || scanning || lookingUp">
             Enregistrer
           </UButton>
         </div>
