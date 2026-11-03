@@ -21,6 +21,17 @@ const counts = computed(() => {
   return c
 })
 
+/** Montant total du ticket : somme des prix de toutes les lignes (ignorées comprises, elles ont été payées) */
+const total = computed(() => {
+  let sum = 0
+  let missing = 0
+  for (const l of lines.value) {
+    if (l.price === null) missing++
+    else sum += Number(l.price)
+  }
+  return { sum: Math.round(sum * 100) / 100, missing }
+})
+
 /** Date d'achat des lignes en attente : commune, ou null si plusieurs tickets de dates différentes */
 const linesDate = computed(() => {
   const dates = new Set(lines.value.map(l => l.purchased_on))
@@ -305,6 +316,10 @@ async function clearAll() {
           {{ counts.ignored }} ignoré{{ counts.ignored > 1 ? 's' : '' }}
         </UBadge>
         <span class="flex-1" />
+        <span class="font-semibold tabular-nums">
+          Total {{ formatPrice(total.sum) }}
+          <span v-if="total.missing" class="text-xs font-normal text-warning">({{ total.missing }} sans prix)</span>
+        </span>
         <UButton v-if="others.length" size="xs" color="neutral" variant="ghost" icon="i-lucide-list-checks" @click="openOthers">
           {{ others.length }} non reconnue{{ others.length > 1 ? 's' : '' }}
         </UButton>
