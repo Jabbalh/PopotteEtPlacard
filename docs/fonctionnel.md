@@ -182,7 +182,7 @@ Règles :
 - **Historique des prix** (si au moins un lot a un prix) : chaque achat, épuisé compris, avec sa date, sa quantité, le prix payé et le prix unitaire (€/kg pour un produit en g, €/L en ml ou cl) ; à partir de deux achats, dernier prix, prix le plus bas (avec sa date) et moyenne pondérée par les quantités.
 - **Alerte rupture** pour un favori ou un produit à commander dont le stock est sous le seuil.
 - **Historique** des sorties (type, quantité, recette, date, auteur, note), chaque sortie pouvant être annulée.
-- **Modifier le produit** : nom, marque, description, composition, Nutri-Score, type, unité, seuil d'alerte rupture (favoris et produits à commander).
+- **Modifier le produit** : nom, aliment (pour les recettes, avec les catégories Open Food Facts proposées si le produit a un code-barres), marque, description, composition, Nutri-Score, type, unité, seuil d'alerte rupture (favoris et produits à commander).
 - **Supprimer le produit** (annulable).
 
 ## 8. Ajout d'un produit
@@ -203,6 +203,7 @@ La popin s'ouvre depuis le stock, la fiche produit (ajout d'un lot), le bilan (r
 | Champ | Obligatoire | Défaut |
 |---|---|---|
 | Nom du produit | ✅ | Open Food Facts |
+| Aliment (pour les recettes) | | Catégorie Open Food Facts la plus précise ; les autres catégories sont proposées en raccourcis |
 | Marque, description, composition, Nutri-Score | | Open Food Facts (section dépliable) |
 | Aliment favori (étoiles) | | 0 (non favori) |
 | À commander quand épuisé | | Non |
@@ -316,6 +317,13 @@ Un aliment de recette correspond à un produit en stock si ses mots significatif
 | beurre doux | Beurre | ✅ |
 | Pomme | Pomme de terre Charlotte | ❌ |
 | gruyère râpé | Emmental râpé | ❌ |
+| pâtes | Coquillettes (aliment : « Pâtes sèches ») | ✅ |
+
+Le rapprochement se fait sur le nom du produit **et** sur son **aliment** (champ *Aliment (pour les recettes)* : « pâtes » pour « Coquillettes Panzani »), prérempli depuis les catégories Open Food Facts au scan.
+
+Un aliment absent du stock mais parmi les **basiques du placard** du foyer (sel, poivre, huile…, voir § 13) est considéré disponible : « Huile » couvre « huile d'olive ».
+
+**Quantités** : si l'aliment de la recette a une quantité et que l'unité est comparable avec celle du produit (g / kg, ml / cl / L, pièce ; sans unité = pièces), le stock restant est comparé à la quantité demandée. En quantité insuffisante, l'aliment est signalé (⚠ « pas assez : 200 g en stock ») et compte pour moitié dans la part des aliments disponibles.
 
 ### Onglet « Avec le stock »
 
@@ -341,10 +349,11 @@ Recettes utilisant des aliments qui périment dans les 14 jours, classées par u
 
 ### Détail d'une recette
 
-- Aliments disponibles (avec le produit et le restant) et aliments manquants (« à acheter ») ;
+- Aliments disponibles (avec le produit et le restant ; ⚠ si la quantité est insuffisante), basiques du placard, et aliments manquants (« à acheter », ou « dans la liste de courses ») ;
+- **Ajouter aux courses (n)** : place dans la liste de courses les aliments manquants (avec la quantité de la recette) et les compléments des aliments insuffisants, sauf ceux déjà dans la liste. Annulable ;
 - texte de préparation ;
 - personnes qui l'aiment ; aversions et allergies signalées ;
-- **Je la cuisine** : popin de sortie listant les lots correspondants, le plus urgent coché par aliment, avec la quantité de la recette si elle est dans la même unité que le produit (sinon « Tout »). La recette est mémorisée dans l'historique.
+- **Je la cuisine** : popin de sortie listant les lots correspondants, le plus urgent coché par aliment, avec la quantité de la recette convertie dans l'unité du produit si elles sont comparables (500 g → 0,5 kg ; sinon « Tout »). La recette est mémorisée dans l'historique.
 
 ### Onglet « À consommer »
 
@@ -354,13 +363,21 @@ Tous les lots avec une date de péremption, du plus proche au plus lointain, ave
 
 Écran *Courses* (navigation du foyer).
 
+### Liste de courses
+
+Liste libre partagée par le foyer, en tête de l'écran :
+- alimentée par *Ajouter aux courses* d'une idée de recette (aliment, quantité, nom de la recette) ou par saisie libre (champ *Ajouter un aliment*, un aliment déjà présent n'est pas ajouté deux fois) ;
+- bouton **✓ Acheté** : retire l'article de la liste (annulable).
+
+### Produits à commander
+
 Un produit peut être marqué **« À commander quand épuisé »** : interrupteur sur la fiche produit (enregistré immédiatement) ou dans la popin d'ajout. Il apparaît alors dans cet écran dès que son stock est inférieur ou égal à son seuil d'alerte (1 par défaut, modifiable dans *Modifier le produit* ; 0 pour ne le voir qu'une fois épuisé).
 
 - Deux groupes : **En rupture** (plus rien) puis **Bientôt épuisés** (*Reste X*).
 - Bouton **✓ Commandé** : le produit reste dans la liste, barré, avec *Commandé le <date>*, pour éviter de le commander deux fois. Annulable (bouton ↶).
 - Le statut « commandé » disparaît de lui-même dès qu'un lot du produit est ajouté au stock après la commande.
 - Bouton **+** : ajouter un lot (popin d'ajout sur ce produit).
-- **Partager** : la liste des produits non encore commandés (nom et marque), par le partage natif du téléphone ou copiée dans le presse-papiers.
+- **Partager** : la liste de courses puis les produits non encore commandés (nom et marque), par le partage natif du téléphone ou copiée dans le presse-papiers.
 - Toucher un produit ouvre sa fiche.
 
 Sur la fiche produit, un encart *À commander* / *Commandé le …* propose les mêmes actions.
@@ -377,6 +394,7 @@ Indépendant des **Favoris à racheter** du bilan (fondés sur les étoiles).
 ## 13. Réglages du foyer
 
 - **Nom du foyer**.
+- **Basiques du placard** : aliments toujours considérés disponibles dans les idées de recettes (sel, poivre, huile…), sans être suivis dans le stock. Ajout par saisie ou par les suggestions (Sel, Poivre, Huile, Eau, Sucre, Farine, Vinaigre, Moutarde) ; retrait par la croix.
 - **Rangements** (icône + libellé) et **types d'aliments** :
   - ajouter, renommer (toucher le libellé), changer l'icône (toucher l'icône), réordonner ;
   - retirer : l'élément est archivé (masqué des choix, conservé sur les produits existants), restaurable ;

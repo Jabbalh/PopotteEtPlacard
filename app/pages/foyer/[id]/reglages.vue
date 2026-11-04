@@ -8,7 +8,18 @@ const { online, sync } = useSync()
 const { household, isOwner, me } = useHousehold(householdId)
 const { allLocations, allFoodTypes, locations, foodTypes } = useHouseholdOptions(householdId)
 const { allLots, products } = useStock(householdId)
-const { updateHousehold } = useHouseholdActions()
+const { updateHousehold, addStaple, removeStaple } = useHouseholdActions()
+
+// --- Basiques du placard ---
+const { staples } = usePantryStaples(householdId)
+const newStaple = ref('')
+const stapleSuggestions = computed(() => COMMON_STAPLES.filter(c => !staples.value.some(s => s.label.toLowerCase() === c.toLowerCase())))
+
+async function saveStaple(label = newStaple.value) {
+  if (!label.trim()) return
+  await addStaple(householdId.value, label)
+  newStaple.value = ''
+}
 
 // --- Nom ---
 const name = ref('')
@@ -114,6 +125,42 @@ function askLeave() {
               Enregistrer
             </UButton>
           </form>
+        </UCard>
+
+        <UCard class="order-1">
+          <template #header>
+            <h2 class="font-semibold">
+              Basiques du placard
+            </h2>
+            <p class="text-sm text-muted">
+              Toujours considérés comme disponibles dans les idées de recettes, même sans être suivis dans le stock.
+              « Huile » couvre aussi « huile d'olive ».
+            </p>
+          </template>
+          <div v-if="staples.length" class="flex flex-wrap gap-1.5 mb-3">
+            <UBadge v-for="s in staples" :key="s.id" color="neutral" variant="subtle" size="lg" class="gap-1 pr-1">
+              {{ s.label }}
+              <UButton icon="i-lucide-x" size="xs" color="neutral" variant="link" class="p-0" :aria-label="`Retirer ${s.label}`" @click="removeStaple(s.id)" />
+            </UBadge>
+          </div>
+          <form class="flex gap-2" @submit.prevent="saveStaple()">
+            <UInput v-model="newStaple" class="flex-1" placeholder="Nouveau basique (ex. Sel)…" />
+            <UButton type="submit" icon="i-lucide-plus" :disabled="!newStaple.trim()" aria-label="Ajouter" />
+          </form>
+          <div v-if="stapleSuggestions.length" class="flex flex-wrap items-center gap-1.5 mt-3">
+            <span class="text-xs text-muted">Suggestions :</span>
+            <UButton
+              v-for="c in stapleSuggestions"
+              :key="c"
+              size="xs"
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-plus"
+              @click="saveStaple(c)"
+            >
+              {{ c }}
+            </UButton>
+          </div>
         </UCard>
 
         <UCard class="order-3">

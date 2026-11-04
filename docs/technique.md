@@ -130,6 +130,8 @@ Une base IndexedDB **par utilisateur** : `popotte-<userId>` (`openDb(userId)`), 
 | `recipes` | `pp_recipes` | `id, user_id, household_id, person_id, _dirty` |
 | `receiptAliases` | `pp_receipt_aliases` | `id, household_id, _dirty` |
 | `receiptLines` | `pp_receipt_lines` | `id, household_id, _dirty` |
+| `pantryStaples` | `pp_pantry_staples` | `id, household_id, _dirty` |
+| `shoppingItems` | `pp_shopping_items` | `id, household_id, _dirty` |
 | `profiles` | `profiles` (lecture seule) | `id` |
 | `meta` | — | `key` (curseurs de synchro) |
 
@@ -149,6 +151,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 | 4 | Tables `receiptAliases` (synchronisée) et `receiptLines` (ticket en attente, locale ; purgée avec son foyer) |
 | 5 | `receiptLines` synchronisée (index `_dirty`) : les lignes en attente existantes reçoivent `updated_at`, `deleted_at = null` et sont marquées à envoyer |
 | 6 | `recipes.rating = 0` sur les lignes existantes (colonne non nulle côté serveur) |
+| 7 | Tables `pantryStaples` et `shoppingItems` (synchronisées) ; `products.generic_name = ''` sur les lignes existantes |
 
 ## 6. Synchronisation
 
@@ -220,12 +223,18 @@ Recettes communes (`useHouseholdRecipes`) : `household_id = foyer`, sans `person
 - `1` : tous les mots du libellé sont dans le produit, ou tous ceux du produit dans le libellé ;
 - `0` : aucune correspondance.
 
+`productMatchScore(libellé, produit)` : meilleur de `matchScore` sur `name` et sur `generic_name` (aliment générique). `sameFood(a, b)` : mêmes mots significatifs (doublons de la liste de courses).
+
+`convertQuantity(q, de, vers)` : g / kg, ml / cl / dl / L, pièce (unité vide = pièce, « 3 œufs ») ; `null` si les unités ne sont pas comparables (g et pièce, paquet et boîte…).
+
 ### Idées (`useSuggestions`)
 
 - Recettes = recettes communes du foyer (`common: true`, `favoredBy` vide) + union des recettes des personnes, dédoublonnées par id (`favoredBy` = personnes qui l'ont).
 - Tri *Avec le stock* : sans allergie, `coverage`, `rating`, `favoredBy.length`, aversions, `urgency` ; *Anti-gaspi* : sans allergie, `urgency`, `coverage`, `rating`.
-- Pour chaque aliment : lots correspondants triés par score puis péremption.
-- `coverage = aliments trouvés / aliments`, `urgency = Σ urgencyOf(lot le plus pertinent)`, `conflicts` = préférences *dislike* / *allergy* d'une personne correspondant à un aliment.
+- Pour chaque aliment : lots correspondants (`productMatchScore`) triés par score puis péremption ; sinon basique du placard (`matches(aliment, basique)`, `staples`) ; sinon manquant (`missing`).
+- Quantité : si l'aliment a une quantité, `available` = Σ restant des lots trouvés convertis dans l'unité de l'aliment (lots d'unité non comparable ignorés ; `null` si aucun) ; `enough = available === null || available ≥ quantité`.
+- `toBuy` = manquants (quantité de la recette) + aliments insuffisants (quantité − `available`) ; *Ajouter aux courses* crée les `shoppingItems` absents de la liste (`useShoppingList().findItem`, par `sameFood`).
+- `coverage = (aliments suffisants + ½ × insuffisants + basiques) / aliments`, `available` (badge « x/y ») = trouvés + basiques, `urgency = Σ urgencyOf(lot le plus pertinent)`, `conflicts` = préférences *dislike* / *allergy* d'une personne correspondant à un aliment.
 - Avis d'une personne sur un aliment : `useOpinions(householdId).opinionsOn(nom, codesBarres)` — préférence de même code-barres que le produit (`byBarcode`), sinon `matches(libellé, nom)` ; `fromAccount` indique un goût de compte. Utilisé par les idées (pour un ingrédient de recette, les codes-barres sont ceux des produits trouvés en stock), la fiche produit et la liste du stock (une préférence par personne, la plus forte).
 
 ### Catalogue et code-barres (`useCatalog`)
@@ -277,6 +286,9 @@ Toutes les écritures créent l'UUID côté client, posent `_dirty = 1` et `_lmo
 | `ingredients_text_fr` › `ingredients_text` | `ingredients` |
 | `nutriscore_grade` (a à e uniquement) | `nutriscore` |
 | `image_front_small_url` | `image_url` |
+| `categories_hierarchy` + `categories_tags_fr` (avec `lc=fr`) | `categories` (proposées dans *Aliment (pour les recettes)*) et `generic_name` |
+
+Catégories : seules celles de la taxonomie officielle (`en:[a-z0-9-]+`) traduites en français sont gardées (les catégories libres des contributeurs sont du bruit). `generic_name` proposé = la dernière (plus précise) d'au plus deux mots significatifs (« Pâtes sèches »), sinon la dernière.
 
 Renvoie `null` si inconnu (404 ou `status ≠ 1`), lève une erreur si le service est injoignable.
 

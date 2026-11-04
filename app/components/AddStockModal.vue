@@ -34,6 +34,9 @@ function emptyForm() {
   return {
     barcode: '' as string,
     name: '',
+    /** aliment générique (pour les recettes) et catégories Open Food Facts proposées */
+    generic_name: '',
+    categories: [] as string[],
     brand: '',
     description: '',
     ingredients: '',
@@ -143,6 +146,8 @@ async function onDetected(code: string) {
     }
     Object.assign(form, {
       name: p.name,
+      generic_name: p.generic_name,
+      categories: p.categories,
       brand: p.brand,
       description: p.description,
       ingredients: p.ingredients,
@@ -174,6 +179,7 @@ async function save() {
       product = await addProduct(props.householdId, {
         barcode: form.barcode || null,
         name: form.name,
+        generic_name: form.generic_name,
         brand: form.brand,
         description: form.description,
         ingredients: form.ingredients,
@@ -277,6 +283,8 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
                 </UButton>
               </div>
             </div>
+
+            <GenericNameField v-model="form.generic_name" :categories="form.categories" />
 
             <UButton
               size="xs"

@@ -52,3 +52,59 @@ export function matchScore(label: string, productName: string): number {
 export function matches(label: string, productName: string): boolean {
   return matchScore(label, productName) > 0
 }
+
+/**
+ * Correspondance entre un libellé et un produit : par son nom, ou par son aliment
+ * générique (« pâtes » pour « Coquillettes Panzani »). Meilleur des deux indices.
+ */
+export function productMatchScore(label: string, product: { name: string, generic_name?: string }): number {
+  const byName = matchScore(label, product.name)
+  return product.generic_name ? Math.max(byName, matchScore(label, product.generic_name)) : byName
+}
+
+/** Mêmes mots significatifs (« Tomates » et « tomate ») : doublons de la liste de courses */
+export function sameFood(a: string, b: string): boolean {
+  const ta = tokens(a)
+  const tb = tokens(b)
+  return ta.length > 0 && ta.length === tb.length && ta.every(w => tb.includes(w))
+}
+
+/** Unités convertibles entre elles : grandeur et facteur vers l'unité de base */
+const UNIT_FACTORS: Record<string, { dim: string, factor: number }> = {
+  g: { dim: 'masse', factor: 1 },
+  gr: { dim: 'masse', factor: 1 },
+  gramme: { dim: 'masse', factor: 1 },
+  grammes: { dim: 'masse', factor: 1 },
+  kg: { dim: 'masse', factor: 1000 },
+  kilo: { dim: 'masse', factor: 1000 },
+  kilos: { dim: 'masse', factor: 1000 },
+  ml: { dim: 'volume', factor: 1 },
+  cl: { dim: 'volume', factor: 10 },
+  dl: { dim: 'volume', factor: 100 },
+  l: { dim: 'volume', factor: 1000 },
+  litre: { dim: 'volume', factor: 1000 },
+  litres: { dim: 'volume', factor: 1000 },
+  piece: { dim: 'nombre', factor: 1 },
+  pieces: { dim: 'nombre', factor: 1 },
+  pc: { dim: 'nombre', factor: 1 },
+  pcs: { dim: 'nombre', factor: 1 }
+}
+
+function unitKey(unit: string) {
+  return unit.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\.$/, '')
+}
+
+/**
+ * Convertit une quantité d'une unité à une autre (g ↔ kg, ml ↔ cl ↔ L, pièce).
+ * Sans unité, une quantité d'ingrédient se compte en pièces (« 3 œufs »).
+ * null si les unités ne sont pas comparables (g et pièce, paquet et boîte…).
+ */
+export function convertQuantity(quantity: number, from: string, to: string): number | null {
+  const f = unitKey(from) || 'piece'
+  const t = unitKey(to) || 'piece'
+  if (f === t) return quantity
+  const a = UNIT_FACTORS[f]
+  const b = UNIT_FACTORS[t]
+  if (!a || !b || a.dim !== b.dim) return null
+  return Math.round(quantity * a.factor / b.factor * 1000) / 1000
+}

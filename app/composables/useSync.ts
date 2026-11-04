@@ -51,7 +51,7 @@ const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
   },
   products: {
     remote: 'pp_products',
-    fields: ['id', 'household_id', 'barcode', 'name', 'brand', 'description', 'ingredients', 'nutriscore', 'image_url', 'food_type_id', 'unit', 'rating', 'low_threshold', 'reorder', 'ordered_at', 'created_at', 'deleted_at'],
+    fields: ['id', 'household_id', 'barcode', 'name', 'generic_name', 'brand', 'description', 'ingredients', 'nutriscore', 'image_url', 'food_type_id', 'unit', 'rating', 'low_threshold', 'reorder', 'ordered_at', 'created_at', 'deleted_at'],
     byHousehold: true,
     byUser: false
   },
@@ -90,6 +90,18 @@ const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
     fields: ['id', 'user_id', 'household_id', 'person_id', 'name', 'ingredients', 'instructions', 'rating', 'created_at', 'deleted_at'],
     byHousehold: true,
     byUser: true
+  },
+  pantryStaples: {
+    remote: 'pp_pantry_staples',
+    fields: ['id', 'household_id', 'label', 'created_at', 'deleted_at'],
+    byHousehold: true,
+    byUser: false
+  },
+  shoppingItems: {
+    remote: 'pp_shopping_items',
+    fields: ['id', 'household_id', 'label', 'quantity', 'unit', 'recipe_name', 'created_by', 'created_at', 'deleted_at'],
+    byHousehold: true,
+    byUser: false
   }
 }
 

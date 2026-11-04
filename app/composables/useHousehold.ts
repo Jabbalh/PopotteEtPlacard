@@ -5,8 +5,8 @@ interface Updatable {
   update(key: string, changes: never): PromiseLike<number>
 }
 import type {
-  FoodType, Household, Ingredient, Location, MovementKind, Person, Preference,
-  PreferenceLevel, Product, Recipe, StockItem, StockMovement
+  FoodType, Household, Ingredient, Location, MovementKind, PantryStaple, Person, Preference,
+  PreferenceLevel, Product, Recipe, ShoppingItem, StockItem, StockMovement
 } from '~/utils/db'
 
 function nowIso() {
@@ -41,6 +41,7 @@ export type OptionTable = 'locations' | 'foodTypes'
 export interface ProductInput {
   barcode?: string | null
   name: string
+  generic_name?: string
   brand?: string
   description?: string
   ingredients?: string
@@ -167,6 +168,7 @@ export function useHouseholdActions() {
       household_id: householdId,
       barcode: input.barcode?.trim() || null,
       name: input.name.trim(),
+      generic_name: input.generic_name?.trim() ?? '',
       brand: input.brand?.trim() ?? '',
       description: input.description?.trim() ?? '',
       ingredients: input.ingredients?.trim() ?? '',
@@ -253,12 +255,55 @@ export function useHouseholdActions() {
   /** Note de 0 à 5 étoiles */
   const rateRecipe = (id: string, rating: number) => patch(db.recipes, id, { rating })
 
+  // --- Basiques du placard ---
+
+  async function addStaple(householdId: string, label: string) {
+    const siblings = await db.pantryStaples.where('household_id').equals(householdId).toArray()
+    // un basique supprimé du même nom est restauré plutôt que dupliqué
+    const existing = siblings.find(s => s.label.toLowerCase() === label.trim().toLowerCase())
+    if (existing) {
+      if (existing.deleted_at) await patch(db.pantryStaples, existing.id, { deleted_at: null })
+      return existing
+    }
+    const staple: PantryStaple = { ...base(), household_id: householdId, label: label.trim() }
+    await db.pantryStaples.add(staple)
+    schedule()
+    return staple
+  }
+
+  const removeStaple = (id: string) => patch(db.pantryStaples, id, { deleted_at: nowIso() })
+
+  // --- Liste de courses ---
+
+  async function addShoppingItems(householdId: string, inputs: Pick<ShoppingItem, 'label' | 'quantity' | 'unit' | 'recipe_name'>[]) {
+    const rows: ShoppingItem[] = inputs.map(i => ({
+      ...base(),
+      household_id: householdId,
+      created_by: user.value!.id,
+      ...i,
+      label: i.label.trim(),
+      unit: i.unit.trim()
+    }))
+    await db.shoppingItems.bulkAdd(rows)
+    // délai > durée du toast « Annuler »
+    schedule(7000)
+    return rows
+  }
+
+  /** Acheté ou retiré de la liste (suppression douce, annulable) */
+  async function removeShoppingItems(ids: string[], restore = false) {
+    const lmod = Date.now()
+    await db.shoppingItems.where('id').anyOf(ids).modify({ deleted_at: restore ? null : nowIso(), _dirty: 1, _lmod: lmod })
+    schedule(restore ? undefined : 7000)
+  }
+
   return {
     createHousehold, updateHousehold,
     addPerson, updatePerson,
     addOption, updateOption, reorderOptions,
     addProduct, updateProduct, addStockItem, updateStockItem, addMovements, cancelMovements,
-    addPreference, updatePreference, saveRecipe, deleteRecipe, restoreRecipe, rateRecipe
+    addPreference, updatePreference, saveRecipe, deleteRecipe, restoreRecipe, rateRecipe,
+    addStaple, removeStaple, addShoppingItems, removeShoppingItems
   }
 }
 

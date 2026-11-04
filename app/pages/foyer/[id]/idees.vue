@@ -22,12 +22,10 @@ const takeOpen = ref(false)
 const takeLines = ref<TakeLine[]>([])
 const takeRecipe = ref<string | null>(null)
 
-/** Quantité de l'ingrédient, si elle est exprimée dans l'unité du produit */
+/** Quantité de l'ingrédient convertie dans l'unité du produit (g ↔ kg, cl ↔ L…), si elles sont comparables */
 function suggestedFor(quantity: number | null, unit: string, lot: Lot) {
   if (!quantity) return null
-  const u = unit.trim().toLowerCase()
-  if (!u || u === lot.product.unit.toLowerCase()) return quantity
-  return null
+  return convertQuantity(quantity, unit, lot.product.unit)
 }
 
 function cook(s: RecipeSuggestion) {
@@ -61,6 +59,37 @@ const householdRecipesOpen = ref(false)
 /** Note modifiable : recette du foyer ou d'une personne, ou recette de mon compte (celles des autres comptes sont en lecture seule) */
 function canRate(s: RecipeSuggestion) {
   return !s.recipe.user_id || s.recipe.user_id === user.value?.id
+}
+
+// --- Liste de courses ---
+const toast = useToast()
+const { findItem } = useShoppingList(householdId)
+const { addShoppingItems, removeShoppingItems } = useHouseholdActions()
+
+function ingredientLabel(i: { quantity: number | null, unit: string, name: string }) {
+  return [i.quantity, i.unit, i.name].filter(Boolean).join(' ')
+}
+
+/** Aliments à acheter pour la recette qui ne sont pas encore dans la liste de courses */
+function notListed(s: RecipeSuggestion) {
+  return s.toBuy.filter(b => !findItem(b.ingredient.name))
+}
+
+async function addToShopping(s: RecipeSuggestion) {
+  const items = notListed(s)
+  if (!items.length) return
+  const rows = await addShoppingItems(householdId.value, items.map(b => ({
+    label: b.ingredient.name,
+    quantity: b.quantity,
+    unit: b.quantity ? b.ingredient.unit : '',
+    recipe_name: s.recipe.name
+  })))
+  toast.add({
+    title: items.length > 1 ? `${items.length} aliments ajoutés aux courses` : 'Aliment ajouté aux courses',
+    icon: 'i-lucide-shopping-cart',
+    color: 'success',
+    actions: [{ label: 'Annuler', color: 'neutral', variant: 'outline', onClick: () => removeShoppingItems(rows.map(r => r.id)) }]
+  })
 }
 </script>
 
@@ -106,7 +135,7 @@ function canRate(s: RecipeSuggestion) {
                 {{ s.recipe.name }}
               </p>
               <UBadge :color="s.coverage === 1 ? 'success' : s.coverage >= 0.5 ? 'primary' : 'neutral'" variant="subtle" size="sm">
-                {{ s.matches.length }}/{{ s.recipe.ingredients.length }} ingrédients
+                {{ s.available }}/{{ s.recipe.ingredients.length }} ingrédients
               </UBadge>
             </div>
             <UProgress :model-value="Math.round(s.coverage * 100)" size="xs" :color="s.coverage === 1 ? 'success' : 'primary'" />
@@ -144,17 +173,42 @@ function canRate(s: RecipeSuggestion) {
           <div v-if="expanded === s.recipe.id" class="px-3 pb-3 space-y-3 border-t border-default pt-3">
             <ul class="text-sm space-y-1">
               <li v-for="m in s.matches" :key="`ok-${m.ingredient.name}`" class="flex items-start gap-2">
-                <UIcon name="i-lucide-check" class="size-4 text-success mt-0.5 shrink-0" />
+                <UIcon
+                  :name="m.enough ? 'i-lucide-check' : 'i-lucide-triangle-alert'"
+                  class="size-4 mt-0.5 shrink-0"
+                  :class="m.enough ? 'text-success' : 'text-warning'"
+                />
                 <span>
-                  {{ [m.ingredient.quantity, m.ingredient.unit, m.ingredient.name].filter(Boolean).join(' ') }}
+                  {{ ingredientLabel(m.ingredient) }}
                   <span class="text-muted">→ {{ m.lots[0]!.product.name }} ({{ formatQuantity(m.lots[0]!.remaining, m.lots[0]!.product.unit) }})</span>
+                  <span v-if="!m.enough" class="text-warning">
+                    — pas assez : {{ formatQuantity(m.available!, m.ingredient.unit) }} en stock
+                    <template v-if="findItem(m.ingredient.name)">· dans la liste de courses</template>
+                  </span>
+                </span>
+              </li>
+              <li v-for="i in s.staples" :key="`staple-${i.name}`" class="flex items-start gap-2">
+                <UIcon name="i-lucide-check" class="size-4 text-muted mt-0.5 shrink-0" />
+                <span>
+                  {{ ingredientLabel(i) }}
+                  <span class="text-muted">— basique du placard</span>
                 </span>
               </li>
               <li v-for="i in s.missing" :key="`ko-${i.name}`" class="flex items-start gap-2 text-muted">
                 <UIcon name="i-lucide-x" class="size-4 text-error mt-0.5 shrink-0" />
-                <span>{{ [i.quantity, i.unit, i.name].filter(Boolean).join(' ') }} — à acheter</span>
+                <span>{{ ingredientLabel(i) }} — {{ findItem(i.name) ? 'dans la liste de courses' : 'à acheter' }}</span>
               </li>
             </ul>
+            <UButton
+              v-if="notListed(s).length"
+              block
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-shopping-cart"
+              @click="addToShopping(s)"
+            >
+              Ajouter aux courses ({{ notListed(s).length }})
+            </UButton>
             <p v-if="s.recipe.instructions" class="text-sm whitespace-pre-line rounded-lg bg-muted/50 p-2.5">
               {{ s.recipe.instructions }}
             </p>

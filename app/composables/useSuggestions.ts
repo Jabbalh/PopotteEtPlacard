@@ -5,6 +5,20 @@ export interface IngredientMatch {
   ingredient: Ingredient
   /** lots correspondants, du plus urgent au moins urgent */
   lots: Lot[]
+  /**
+   * quantité en stock exprimée dans l'unité de l'ingrédient ; null si l'ingrédient
+   * n'a pas de quantité ou si aucune unité n'est comparable (g et pièce…)
+   */
+  available: number | null
+  /** false = en stock, mais pas assez pour la recette */
+  enough: boolean
+}
+
+/** Aliment à acheter pour une recette : manquant, ou complément d'un stock insuffisant */
+export interface ToBuy {
+  ingredient: Ingredient
+  /** quantité à acheter, dans l'unité de l'ingrédient (null = non précisée) */
+  quantity: number | null
 }
 
 export interface PersonOpinion {
@@ -25,9 +39,15 @@ export interface RecipeSuggestion {
   /** recette commune du foyer (rattachée à aucune personne) */
   common: boolean
   matches: IngredientMatch[]
-  /** part des ingrédients disponibles (0 à 1) */
+  /** ingrédients absents du stock mais parmi les basiques du placard (sel, huile…) */
+  staples: Ingredient[]
+  /** part des ingrédients disponibles (0 à 1) ; un ingrédient en quantité insuffisante compte pour moitié */
   coverage: number
+  /** nombre d'ingrédients disponibles (en stock, même en quantité insuffisante, ou basiques) */
+  available: number
   missing: Ingredient[]
+  /** manquants et compléments des ingrédients insuffisants */
+  toBuy: ToBuy[]
   /** urgence liée aux dates de péremption des lots utilisés */
   urgency: number
   /** ingrédients que quelqu'un n'aime pas ou ne peut pas manger */
@@ -80,6 +100,18 @@ export function useSuggestions(householdId: Ref<string>) {
   const { tastes } = useHouseholdTastes(householdId)
   const { householdRecipes } = useHouseholdRecipes(householdId)
   const { opinionsOn } = useOpinions(householdId)
+  const { staples } = usePantryStaples(householdId)
+
+  /** Quantité en stock dans l'unité de l'ingrédient (lots d'unité comparable) ; null si non comparable */
+  function availableFor(ingredient: Ingredient, found: Lot[]): number | null {
+    if (!ingredient.quantity) return null
+    let total: number | null = null
+    for (const l of found) {
+      const q = convertQuantity(l.remaining, l.product.unit, ingredient.unit)
+      if (q !== null) total = (total ?? 0) + q
+    }
+    return total === null ? null : Math.round(total * 1000) / 1000
+  }
 
   const recipes = computed<RecipeSuggestion[]>(() => {
     const byId = new Map<string, { recipe: Recipe, favoredBy: Person[], common: boolean }>()
@@ -94,29 +126,45 @@ export function useSuggestions(householdId: Ref<string>) {
 
     return [...byId.values()].map(({ recipe, favoredBy, common }) => {
       const matchList: IngredientMatch[] = []
+      const stapleList: Ingredient[] = []
       const missing: Ingredient[] = []
+      const toBuy: ToBuy[] = []
       const conflicts: PersonOpinion[] = []
       for (const ingredient of recipe.ingredients) {
         const found = lots.value
-          .map(l => ({ l, s: matchScore(ingredient.name, l.product.name) }))
+          .map(l => ({ l, s: productMatchScore(ingredient.name, l.product) }))
           .filter(x => x.s > 0)
           .sort((a, b) => b.s - a.s || (a.l.item.expires_on ?? '9999').localeCompare(b.l.item.expires_on ?? '9999'))
           .map(x => x.l)
-        if (found.length) matchList.push({ ingredient, lots: found })
-        else missing.push(ingredient)
+        if (found.length) {
+          const available = availableFor(ingredient, found)
+          // petite tolérance pour les arrondis de conversion
+          const enough = available === null || available >= ingredient.quantity! - 1e-6
+          matchList.push({ ingredient, lots: found, available, enough })
+          if (!enough) toBuy.push({ ingredient, quantity: Math.round((ingredient.quantity! - available!) * 1000) / 1000 })
+        } else if (staples.value.some(s => matches(ingredient.name, s.label))) {
+          stapleList.push(ingredient)
+        } else {
+          missing.push(ingredient)
+          toBuy.push({ ingredient, quantity: ingredient.quantity })
+        }
         const opinions = opinionsOn(ingredient.name, found.map(l => l.product.barcode))
         for (const o of opinions) {
           if ((o.level === 'dislike' || o.level === 'allergy') && !conflicts.some(c => c.person.id === o.person.id && c.label === o.label)) conflicts.push(o)
         }
       }
       const urgency = matchList.reduce((sum, m) => sum + urgencyOf(m.lots[0]!.item.expires_on), 0)
+      const score = matchList.reduce((sum, m) => sum + (m.enough ? 1 : 0.5), 0) + stapleList.length
       return {
         recipe,
         favoredBy,
         common,
         matches: matchList,
+        staples: stapleList,
         missing,
-        coverage: recipe.ingredients.length ? matchList.length / recipe.ingredients.length : 0,
+        toBuy,
+        available: matchList.length + stapleList.length,
+        coverage: recipe.ingredients.length ? score / recipe.ingredients.length : 0,
         urgency,
         conflicts
       }

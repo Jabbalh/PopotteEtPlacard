@@ -1,4 +1,4 @@
-import type { Person, Preference, Product, Recipe, StockItem, StockMovement } from '~/utils/db'
+import type { PantryStaple, Person, Preference, Product, Recipe, ShoppingItem, StockItem, StockMovement } from '~/utils/db'
 
 /** Un lot en stock avec sa quantité restante */
 export interface Lot {
@@ -173,6 +173,41 @@ export function useHouseholdRecipes(householdId: Ref<string>) {
     [householdId]
   )
   return { householdRecipes: data, owner: computed<TasteOwner>(() => ({ householdId: householdId.value })) }
+}
+
+/** Basiques du placard proposés à l'ajout (ceux déjà présents sont masqués) */
+export const COMMON_STAPLES = ['Sel', 'Poivre', 'Huile', 'Eau', 'Sucre', 'Farine', 'Vinaigre', 'Moutarde']
+
+/** Basiques du placard du foyer (toujours considérés disponibles), triés par libellé */
+export function usePantryStaples(householdId: Ref<string>) {
+  const db = useDb()
+  const { data } = useLiveQuery(
+    async () => (await db.pantryStaples.where('household_id').equals(householdId.value).toArray())
+      .filter(s => !s.deleted_at)
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [] as PantryStaple[],
+    [householdId]
+  )
+  return { staples: data }
+}
+
+/** Liste de courses du foyer (articles non achetés), du plus ancien au plus récent */
+export function useShoppingList(householdId: Ref<string>) {
+  const db = useDb()
+  const { data } = useLiveQuery(
+    async () => (await db.shoppingItems.where('household_id').equals(householdId.value).toArray())
+      .filter(i => !i.deleted_at)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    [] as ShoppingItem[],
+    [householdId]
+  )
+
+  /** Article de la liste correspondant à un aliment (même mots significatifs) */
+  function findItem(label: string) {
+    return data.value.find(i => sameFood(i.label, label))
+  }
+
+  return { shoppingItems: data, findItem }
 }
 
 /** Mes préférences et recettes de niveau compte */

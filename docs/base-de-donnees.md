@@ -14,6 +14,7 @@ Migrations de l'application (dans l'ordre, dans le SQL Editor, **après** celles
 | [`20261102110000_stock_items_price.sql`](../supabase/migrations/20261102110000_stock_items_price.sql) | Prix payé des lots (`pp_stock_items.price`), historique des prix |
 | [`20261103100000_receipt_lines.sql`](../supabase/migrations/20261103100000_receipt_lines.sql) | Lignes de tickets en attente partagées par le foyer (`pp_receipt_lines`) |
 | [`20261103110000_household_recipes.sql`](../supabase/migrations/20261103110000_household_recipes.sql) | Recettes communes du foyer (`pp_recipes` sans personne) et note des recettes (`rating`) |
+| [`20261104100000_recipes_stock_matching.sql`](../supabase/migrations/20261104100000_recipes_stock_matching.sql) | Aliment générique des produits (`pp_products.generic_name`), basiques du placard (`pp_pantry_staples`), liste de courses (`pp_shopping_items`) |
 
 Une migration qui ajoute une colonne synchronisée doit être exécutée **avant** le déploiement de l'application qui l'utilise.
 
@@ -70,6 +71,8 @@ erDiagram
     pp_households ||--o{ pp_receipt_lines : ""
     pp_products ||--o{ pp_receipt_lines : "product_id (nullable)"
     pp_products ||--o{ pp_receipt_aliases : "product_id (nullable)"
+    pp_households ||--o{ pp_pantry_staples : ""
+    pp_households ||--o{ pp_shopping_items : ""
 
     pp_food_types ||--o{ pp_products : "food_type_id"
     pp_products ||--o{ pp_stock_items : "product_id"
@@ -208,6 +211,7 @@ Comme `pp_locations`, sans `icon` ni `freezer`, plus :
 | `household_id` | uuid | not null → `pp_households` cascade | |
 | `barcode` | text | | Code EAN/UPC |
 | `name` | text | not null, non vide | Seul champ obligatoire |
+| `generic_name` | text | not null, défaut `''` | Aliment générique (« pâtes » pour « Coquillettes Panzani ») : reconnaît le produit dans les aliments des recettes, en plus de `name` |
 | `brand`, `description`, `ingredients` | text | not null, défaut `''` | `ingredients` = composition |
 | `nutriscore` | text | `a`…`e` ou null | |
 | `image_url` | text | | Photo Open Food Facts |
@@ -316,6 +320,30 @@ Mêmes colonnes de rattachement que `pp_preferences`, avec un cas de plus. Contr
 
 RLS d'écriture : comme `pp_preferences`, mais `person_id` peut être vide pour une recette de foyer (`person_id is null or pp_person_in_household(person_id, household_id)`).
 
+### `pp_pantry_staples` — basiques du placard
+
+| Colonne | Type | Contraintes / défaut | Description |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `household_id` | uuid | not null → `pp_households` cascade | |
+| `label` | text | not null, non vide | Aliment toujours considéré disponible pour les recettes (sel, poivre, huile…) |
+
+Index : `(household_id, updated_at)`. Retrait = `deleted_at` ; un basique ré-ajouté sous le même nom est restauré.
+
+### `pp_shopping_items` — liste de courses
+
+| Colonne | Type | Contraintes / défaut | Description |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `household_id` | uuid | not null → `pp_households` cascade | |
+| `label` | text | not null, non vide | Aliment à acheter |
+| `quantity` | numeric | ≥ 0 ou null | Quantité (reprise de l'ingrédient de la recette, ou complément d'un stock insuffisant) |
+| `unit` | text | not null, défaut `''` | Unité de `quantity` |
+| `recipe_name` | text | | Recette d'origine ; null = saisi à la main |
+| `created_by` | uuid | → `profiles` on delete set null, défaut `auth.uid()` | |
+
+Index : `(household_id, updated_at)`. Acheté ou retiré = `deleted_at`.
+
 ## 4. Fonctions
 
 Toutes en `security definer` avec `search_path = public`, exécutables par `authenticated` uniquement.
@@ -343,8 +371,8 @@ Ces deux dernières positionnent la variable de transaction `pp.trusted = on` po
 
 | Fonction | Tables | Effet |
 |---|---|---|
-| `pp_touch()` | `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_receipt_aliases`, `pp_receipt_lines`, `pp_preferences`, `pp_recipes` | `updated_at = now()` ; `created_at` immuable |
-| `pp_touch_author()` | `pp_households`, `pp_stock_items`, `pp_stock_movements` | idem + `created_by = auth.uid()` à l'insertion, immuable ensuite (sauf mise à `null` par la cascade de suppression de compte) |
+| `pp_touch()` | `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_receipt_aliases`, `pp_receipt_lines`, `pp_pantry_staples`, `pp_preferences`, `pp_recipes` | `updated_at = now()` ; `created_at` immuable |
+| `pp_touch_author()` | `pp_households`, `pp_stock_items`, `pp_stock_movements`, `pp_shopping_items` | idem + `created_by = auth.uid()` à l'insertion, immuable ensuite (sauf mise à `null` par la cascade de suppression de compte) |
 | `pp_guard_household()` | `pp_households` (update) | Seul le propriétaire peut modifier `deleted_at` |
 | `pp_guard_person()` | `pp_people` (insert, update) | Voir § 5 |
 
@@ -379,7 +407,7 @@ RLS activée sur toutes les tables `pp_*`. Droits accordés à `authenticated` :
 | Table | Lecture | Insertion | Modification |
 |---|---|---|---|
 | `pp_households` | créateur ou membre | `created_by = auth.uid()` | membre (suppression : propriétaire, via trigger) |
-| `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_receipt_aliases`, `pp_receipt_lines`, `pp_stock_items`, `pp_stock_movements` | membre du foyer | membre du foyer | membre du foyer (+ trigger pour `pp_people`) |
+| `pp_people`, `pp_locations`, `pp_food_types`, `pp_products`, `pp_receipt_aliases`, `pp_receipt_lines`, `pp_pantry_staples`, `pp_shopping_items`, `pp_stock_items`, `pp_stock_movements` | membre du foyer | membre du foyer | membre du foyer (+ trigger pour `pp_people`) |
 | `pp_preferences`, `pp_recipes` | les miennes (`user_id = moi`) ; celles des comptes qui partagent un foyer avec moi ; celles des foyers dont je suis membre | `user_id = moi` ; ou niveau foyer : membre **et** personne du foyer | les miennes ; ou niveau foyer : membre (avec la même vérification de personne) |
 | `profiles` (ajout) | co-membres d'un foyer | — | — |
 

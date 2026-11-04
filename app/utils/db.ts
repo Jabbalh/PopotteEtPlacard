@@ -59,6 +59,8 @@ export interface Product extends SyncFields, Timestamps {
   household_id: string
   barcode: string | null
   name: string
+  /** aliment générique (« pâtes » pour « Coquillettes Panzani ») : rapprochement avec les recettes */
+  generic_name: string
   brand: string
   description: string
   ingredients: string
@@ -143,6 +145,25 @@ export interface Recipe extends SyncFields, Timestamps, Owned {
   rating: number
 }
 
+/** Basique du placard (sel, poivre, huile…) : toujours considéré disponible pour les recettes */
+export interface PantryStaple extends SyncFields, Timestamps {
+  id: string
+  household_id: string
+  label: string
+}
+
+/** Article de la liste de courses du foyer ; acheté = supprimé (deleted_at) */
+export interface ShoppingItem extends SyncFields, Timestamps {
+  id: string
+  household_id: string
+  label: string
+  quantity: number | null
+  unit: string
+  /** recette d'origine (null = saisi à la main) */
+  recipe_name: string | null
+  created_by: string | null
+}
+
 /** Libellé de ticket de caisse mémorisé pour un produit (product_id null = libellé à ignorer) */
 export interface ReceiptAlias extends SyncFields, Timestamps {
   id: string
@@ -213,12 +234,14 @@ export type AppDb = Dexie & {
   recipes: EntityTable<Recipe, 'id'>
   receiptAliases: EntityTable<ReceiptAlias, 'id'>
   receiptLines: EntityTable<ReceiptLine, 'id'>
+  pantryStaples: EntityTable<PantryStaple, 'id'>
+  shoppingItems: EntityTable<ShoppingItem, 'id'>
   profiles: EntityTable<Profile, 'id'>
   meta: EntityTable<Meta, 'key'>
 }
 
 /** Tables synchronisées, dans l'ordre d'envoi (respect des clés étrangères) */
-export const SYNCED_TABLES = ['households', 'people', 'locations', 'foodTypes', 'products', 'receiptAliases', 'receiptLines', 'stockItems', 'movements', 'preferences', 'recipes'] as const
+export const SYNCED_TABLES = ['households', 'people', 'locations', 'foodTypes', 'products', 'receiptAliases', 'receiptLines', 'stockItems', 'movements', 'preferences', 'recipes', 'pantryStaples', 'shoppingItems'] as const
 export type SyncedTable = typeof SYNCED_TABLES[number]
 
 const instances = new Map<string, AppDb>()
@@ -279,6 +302,13 @@ export function openDb(userId: string): AppDb {
     // note des recettes : 0 sur les lignes existantes (colonne non nulle côté serveur)
     db.version(6).stores({}).upgrade(tx => tx.table('recipes').toCollection().modify((r: Partial<Recipe>) => {
       r.rating ??= 0
+    }))
+    // recettes ↔ stock : aliment générique des produits, basiques du placard, liste de courses
+    db.version(7).stores({
+      pantryStaples: 'id, household_id, _dirty',
+      shoppingItems: 'id, household_id, _dirty'
+    }).upgrade(tx => tx.table('products').toCollection().modify((p: Partial<Product>) => {
+      p.generic_name ??= ''
     }))
     instances.set(userId, db)
   }

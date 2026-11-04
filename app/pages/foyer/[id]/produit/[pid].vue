@@ -54,7 +54,7 @@ const setOrdered = (v: boolean) => updateProduct(productId.value, { ordered_at: 
 const editOpen = ref(false)
 const form = reactive({
   barcode: '', image_url: null as string | null,
-  name: '', brand: '', description: '', ingredients: '',
+  name: '', generic_name: '', categories: [] as string[], brand: '', description: '', ingredients: '',
   nutriscore: null as Nutriscore | null, food_type_id: undefined as string | undefined,
   unit: 'pièce', low_threshold: 1 as number | null
 })
@@ -64,10 +64,26 @@ function openEdit() {
   scanning.value = false
   Object.assign(form, {
     barcode: p.barcode ?? '', image_url: p.image_url,
-    name: p.name, brand: p.brand, description: p.description, ingredients: p.ingredients,
+    name: p.name, generic_name: p.generic_name ?? '', categories: [], brand: p.brand, description: p.description, ingredients: p.ingredients,
     nutriscore: p.nutriscore, food_type_id: p.food_type_id ?? undefined, unit: p.unit, low_threshold: p.low_threshold
   })
   editOpen.value = true
+  loadCategories(p.barcode)
+}
+
+/**
+ * Catégories Open Food Facts proposées pour l'aliment générique (produit avec code-barres,
+ * en ligne). Facultatif : sans réseau ou en cas d'échec, le champ reste en saisie libre.
+ */
+async function loadCategories(barcode: string | null) {
+  if (!barcode || !online.value) return
+  try {
+    const off = await fetchOffProduct(barcode)
+    // la fenêtre a pu être fermée, ou le code-barres changé entre-temps
+    if (!off || !editOpen.value || form.barcode !== barcode) return
+    form.categories = off.categories
+    if (!form.generic_name) form.generic_name = off.generic_name
+  } catch { /* réseau : pas de proposition */ }
 }
 
 /** Code-barres saisi : vide, ou 8 à 14 chiffres (EAN / UPC) */
@@ -101,6 +117,8 @@ async function onDetected(code: string) {
     // les informations trouvées remplacent les actuelles ; rien n'est enregistré avant validation
     Object.assign(form, {
       name: off.name || form.name,
+      generic_name: form.generic_name || off.generic_name,
+      categories: off.categories,
       brand: off.brand || form.brand,
       description: off.description || form.description,
       ingredients: off.ingredients || form.ingredients,
@@ -119,7 +137,7 @@ async function saveEdit() {
   if (!form.name.trim() || !barcodeValid.value) return
   await updateProduct(productId.value, {
     barcode: form.barcode.trim() || null, image_url: form.image_url,
-    name: form.name.trim(), brand: form.brand.trim(), description: form.description.trim(), ingredients: form.ingredients.trim(),
+    name: form.name.trim(), generic_name: form.generic_name.trim(), brand: form.brand.trim(), description: form.description.trim(), ingredients: form.ingredients.trim(),
     nutriscore: form.nutriscore, food_type_id: form.food_type_id ?? null, unit: form.unit, low_threshold: form.low_threshold ?? 0
   })
   editOpen.value = false
@@ -516,6 +534,7 @@ const unitItems = UNITS.map(u => ({ label: u, value: u }))
           <UFormField label="Nom" required>
             <UInput v-model="form.name" class="w-full" required />
           </UFormField>
+          <GenericNameField v-model="form.generic_name" :categories="form.categories" />
           <UFormField label="Marque">
             <UInput v-model="form.brand" class="w-full" />
           </UFormField>
