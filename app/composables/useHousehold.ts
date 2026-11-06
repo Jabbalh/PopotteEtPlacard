@@ -233,12 +233,13 @@ export function useHouseholdActions() {
   const updatePreference = (id: string, changes: Partial<Pick<Preference, 'label' | 'barcode' | 'level' | 'deleted_at'>>) =>
     patch(db.preferences, id, changes)
 
-  async function saveRecipe(owner: TasteOwner, data: { id?: string, name: string, ingredients: Ingredient[], instructions: string, rating?: number }) {
+  async function saveRecipe(owner: TasteOwner, data: { id?: string, name: string, ingredients: Ingredient[], instructions: string, rating?: number, servings?: number | null }) {
     const fields = {
       name: data.name.trim(),
       ingredients: data.ingredients.filter(i => i.name.trim()).map(i => ({ name: i.name.trim(), quantity: i.quantity ?? null, unit: i.unit })),
       instructions: data.instructions,
-      rating: data.rating ?? 0
+      rating: data.rating ?? 0,
+      servings: data.servings || null
     }
     if (data.id) {
       await patch(db.recipes, data.id, fields)

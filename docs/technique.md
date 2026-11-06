@@ -231,6 +231,7 @@ Recettes communes (`useHouseholdRecipes`) : `household_id = foyer`, sans `person
 
 - Recettes = recettes communes du foyer (`common: true`, `favoredBy` vide) + union des recettes des personnes, dédoublonnées par id (`favoredBy` = personnes qui l'ont).
 - Tri *Avec le stock* : sans allergie, `coverage`, `rating`, `favoredBy.length`, aversions, `urgency` ; *Anti-gaspi* : sans allergie, `urgency`, `coverage`, `rating`.
+- Convives : `useSuggestions(householdId, guests)`, `guests` = nombre choisi par id de recette (`useState('pep:ideas-guests')` dans *Idées*). Si la recette a `servings`, `servings` de l'idée = `guests[id] || recipe.servings` et `ingredients` = `scaleIngredients(recipe.ingredients, recipe.servings, servings)` (`utils/servings.ts`, aussi utilisé par le recalcul de `RecipeModal`) ; tout le calcul ci-dessous porte sur ces `ingredients`. `scaled` = nombre différent de celui de la recette.
 - Pour chaque aliment : lots correspondants (`productMatchScore`) triés par score puis péremption ; sinon basique du placard (`matches(aliment, basique)`, `staples`) ; sinon manquant (`missing`).
 - Quantité : si l'aliment a une quantité, `available` = Σ restant des lots trouvés convertis dans l'unité de l'aliment (lots d'unité non comparable ignorés ; `null` si aucun) ; `enough = available === null || available ≥ quantité`.
 - `toBuy` = manquants (quantité de la recette) + aliments insuffisants (quantité − `available`) ; *Ajouter aux courses* crée les `shoppingItems` absents de la liste (`useShoppingList().findItem`, par `sameFood`).

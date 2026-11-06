@@ -38,6 +38,12 @@ export interface RecipeSuggestion {
   favoredBy: Person[]
   /** recette commune du foyer (rattachée à aucune personne) */
   common: boolean
+  /** nombre de convives retenu (choisi sur l'idée, sinon celui de la recette) ; null = non précisé */
+  servings: number | null
+  /** quantités recalculées pour un autre nombre de convives que celui de la recette */
+  scaled: boolean
+  /** aliments de la recette, quantités adaptées au nombre de convives */
+  ingredients: Ingredient[]
   matches: IngredientMatch[]
   /** ingrédients absents du stock mais parmi les basiques du placard (sel, huile…) */
   staples: Ingredient[]
@@ -94,8 +100,10 @@ export function useOpinions(householdId: Ref<string>) {
 /**
  * Idées de recettes et d'aliments pour le foyer, à partir du stock,
  * des recettes favorites et des préférences de chaque personne.
+ * `guests` : nombre de convives choisi par recette (id → nombre), pour adapter les quantités
+ * des recettes dont le nombre de personnes est renseigné.
  */
-export function useSuggestions(householdId: Ref<string>) {
+export function useSuggestions(householdId: Ref<string>, guests?: Ref<Record<string, number>>) {
   const { lots } = useStock(householdId)
   const { tastes } = useHouseholdTastes(householdId)
   const { householdRecipes } = useHouseholdRecipes(householdId)
@@ -130,7 +138,11 @@ export function useSuggestions(householdId: Ref<string>) {
       const missing: Ingredient[] = []
       const toBuy: ToBuy[] = []
       const conflicts: PersonOpinion[] = []
-      for (const ingredient of recipe.ingredients) {
+      const base = recipe.servings || null
+      const servings = base ? (guests?.value[recipe.id] || base) : null
+      const scaled = !!base && servings !== base
+      const ingredients = scaled ? scaleIngredients(recipe.ingredients, base!, servings!) : recipe.ingredients
+      for (const ingredient of ingredients) {
         const found = lots.value
           .map(l => ({ l, s: productMatchScore(ingredient.name, l.product) }))
           .filter(x => x.s > 0)
@@ -159,6 +171,9 @@ export function useSuggestions(householdId: Ref<string>) {
         recipe,
         favoredBy,
         common,
+        servings,
+        scaled,
+        ingredients,
         matches: matchList,
         staples: stapleList,
         missing,

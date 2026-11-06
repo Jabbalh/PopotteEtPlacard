@@ -6,7 +6,16 @@ const route = useRoute()
 const householdId = computed(() => route.params.id as string)
 
 const { locationById } = useHouseholdOptions(householdId)
-const { byStock, byExpiry, foods } = useSuggestions(householdId)
+/** Nombre de convives choisi par recette (conservé le temps de la session) */
+const guests = useState<Record<string, number>>('pep:ideas-guests', () => ({}))
+const { byStock, byExpiry, foods } = useSuggestions(householdId, guests)
+
+function setGuests(s: RecipeSuggestion, n: number | null) {
+  const next = { ...guests.value }
+  if (!n || n === s.recipe.servings) delete next[s.recipe.id]
+  else next[s.recipe.id] = n
+  guests.value = next
+}
 
 const tab = useState<'stock' | 'expiry' | 'foods'>('pep:ideas-tab', () => 'stock')
 const tabs = computed(() => [
@@ -29,7 +38,7 @@ function suggestedFor(quantity: number | null, unit: string, lot: Lot) {
 }
 
 function cook(s: RecipeSuggestion) {
-  takeRecipe.value = s.recipe.name
+  takeRecipe.value = s.scaled ? `${s.recipe.name} (${s.servings} pers.)` : s.recipe.name
   takeLines.value = s.matches.flatMap(m => m.lots.map((lot, i) => ({
     lot,
     ingredient: [m.ingredient.quantity, m.ingredient.unit, m.ingredient.name].filter(Boolean).join(' '),
@@ -146,6 +155,9 @@ async function addToShopping(s: RecipeSuggestion) {
               <span v-if="s.favoredBy.length" class="inline-flex items-center gap-1">
                 <UIcon name="i-lucide-heart" class="size-3 text-pink-500" /> {{ names(s.favoredBy) }}
               </span>
+              <span v-if="s.servings" class="inline-flex items-center gap-1" :class="s.scaled ? 'text-primary font-medium' : ''">
+                <UIcon name="i-lucide-users" class="size-3" /> {{ s.servings }} pers.
+              </span>
               <StarRating v-if="s.recipe.rating" :model-value="Number(s.recipe.rating)" readonly size="sm" />
             </p>
             <p v-if="tab === 'expiry'" class="text-xs flex flex-wrap gap-1">
@@ -171,6 +183,32 @@ async function addToShopping(s: RecipeSuggestion) {
           </button>
 
           <div v-if="expanded === s.recipe.id" class="px-3 pb-3 space-y-3 border-t border-default pt-3">
+            <div v-if="s.recipe.servings" class="flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-muted inline-flex items-center gap-1">
+                <UIcon name="i-lucide-users" class="size-4" /> Convives :
+              </span>
+              <UInputNumber
+                :model-value="s.servings"
+                :min="1"
+                :max="99"
+                size="sm"
+                class="w-28"
+                @update:model-value="v => setGuests(s, v ?? null)"
+              />
+              <UButton
+                v-if="s.scaled"
+                size="xs"
+                color="neutral"
+                variant="link"
+                icon="i-lucide-rotate-ccw"
+                @click="setGuests(s, null)"
+              >
+                Recette : {{ s.recipe.servings }} pers.
+              </UButton>
+            </div>
+            <p v-else-if="s.ingredients.some(i => i.quantity)" class="text-xs text-muted">
+              Indiquez le nombre de personnes dans la recette pour adapter les quantités aux convives.
+            </p>
             <ul class="text-sm space-y-1">
               <li v-for="m in s.matches" :key="`ok-${m.ingredient.name}`" class="flex items-start gap-2">
                 <UIcon

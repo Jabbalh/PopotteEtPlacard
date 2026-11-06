@@ -143,6 +143,8 @@ export interface Recipe extends SyncFields, Timestamps, Owned {
   instructions: string
   /** note de 0 à 5 étoiles (0 = non notée) */
   rating: number
+  /** nombre de personnes pour lequel les quantités sont saisies (null = non précisé) */
+  servings?: number | null
 }
 
 /** Basique du placard (sel, poivre, huile…) : toujours considéré disponible pour les recettes */

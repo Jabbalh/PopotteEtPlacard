@@ -15,6 +15,7 @@ Migrations de l'application (dans l'ordre, dans le SQL Editor, **après** celles
 | [`20261103100000_receipt_lines.sql`](../supabase/migrations/20261103100000_receipt_lines.sql) | Lignes de tickets en attente partagées par le foyer (`pp_receipt_lines`) |
 | [`20261103110000_household_recipes.sql`](../supabase/migrations/20261103110000_household_recipes.sql) | Recettes communes du foyer (`pp_recipes` sans personne) et note des recettes (`rating`) |
 | [`20261104100000_recipes_stock_matching.sql`](../supabase/migrations/20261104100000_recipes_stock_matching.sql) | Aliment générique des produits (`pp_products.generic_name`), basiques du placard (`pp_pantry_staples`), liste de courses (`pp_shopping_items`) |
+| [`20261106100000_recipes_servings.sql`](../supabase/migrations/20261106100000_recipes_servings.sql) | Nombre de personnes des recettes (`pp_recipes.servings`) |
 
 Une migration qui ajoute une colonne synchronisée doit être exécutée **avant** le déploiement de l'application qui l'utilise.
 
@@ -141,6 +142,7 @@ erDiagram
         jsonb ingredients
         text instructions
         smallint rating "0..5"
+        smallint servings "nullable"
     }
 ```
 
@@ -317,6 +319,7 @@ Mêmes colonnes de rattachement que `pp_preferences`, avec un cas de plus. Contr
 | `ingredients` | jsonb | not null, tableau, défaut `[]` | `[{ "name": "Tomate", "quantity": 3, "unit": "pièce" }]` (`quantity` peut être `null`, `unit` vide) |
 | `instructions` | text | not null, défaut `''` | Texte libre |
 | `rating` | smallint | not null, 0 à 5, défaut 0 | Note (étoiles) ; 0 = non notée |
+| `servings` | smallint | 1 à 99 ou null | Nombre de personnes des quantités ; null = non précisé |
 
 RLS d'écriture : comme `pp_preferences`, mais `person_id` peut être vide pour une recette de foyer (`person_id is null or pp_person_in_household(person_id, household_id)`).
 

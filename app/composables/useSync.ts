@@ -87,7 +87,7 @@ const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
   },
   recipes: {
     remote: 'pp_recipes',
-    fields: ['id', 'user_id', 'household_id', 'person_id', 'name', 'ingredients', 'instructions', 'rating', 'created_at', 'deleted_at'],
+    fields: ['id', 'user_id', 'household_id', 'person_id', 'name', 'ingredients', 'instructions', 'rating', 'servings', 'created_at', 'deleted_at'],
     byHousehold: true,
     byUser: true
   },

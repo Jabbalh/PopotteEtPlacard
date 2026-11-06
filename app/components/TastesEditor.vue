@@ -236,7 +236,7 @@ function openRecipe(r: Recipe | null) {
                 <StarRating v-if="r.rating" :model-value="Number(r.rating)" readonly size="sm" class="ml-1 align-middle" />
               </p>
               <p class="text-xs text-muted truncate">
-                {{ r.ingredients.length ? r.ingredients.map(i => i.name).join(', ') : r.instructions || 'Texte libre' }}
+                <template v-if="r.servings">{{ r.servings }} pers. · </template>{{ r.ingredients.length ? r.ingredients.map(i => i.name).join(', ') : r.instructions || 'Texte libre' }}
               </p>
             </div>
             <UIcon v-if="canEdit(r)" name="i-lucide-chevron-right" class="size-4 text-muted" />

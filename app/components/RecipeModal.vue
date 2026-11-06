@@ -14,7 +14,9 @@ const open = defineModel<boolean>('open', { default: false })
 const toast = useToast()
 const { saveRecipe, deleteRecipe, restoreRecipe } = useHouseholdActions()
 
-const form = reactive({ name: '', instructions: '', ingredients: [] as Ingredient[], rating: 0 })
+const form = reactive({ name: '', instructions: '', ingredients: [] as Ingredient[], rating: 0, servings: null as number | null })
+/** nombre de personnes pour lequel les quantités affichées sont exprimées */
+const quantitiesFor = ref<number | null>(null)
 /** recette commune du foyer (rattachée à aucune personne) */
 const isCommon = computed(() => !('userId' in props.owner) && !('personId' in props.owner))
 const listId = `ingredients-${Math.random().toString(36).slice(2)}`
@@ -24,6 +26,8 @@ watch(open, (o) => {
   form.name = props.recipe?.name ?? ''
   form.instructions = props.recipe?.instructions ?? ''
   form.rating = Number(props.recipe?.rating ?? 0)
+  form.servings = props.recipe?.servings ?? null
+  quantitiesFor.value = form.servings
   form.ingredients = props.recipe?.ingredients.map(i => ({ ...i })) ?? []
   if (!form.ingredients.length) addIngredient()
 }, { immediate: true })
@@ -32,9 +36,22 @@ function addIngredient() {
   form.ingredients.push({ name: '', quantity: null, unit: '' })
 }
 
+/** Recalcul possible : nombre de personnes changé et au moins une quantité saisie */
+const canRescale = computed(() =>
+  !!quantitiesFor.value && !!form.servings && form.servings !== quantitiesFor.value
+  && form.ingredients.some(i => i.quantity))
+
+/** Recalcule les quantités des aliments pour le nouveau nombre de personnes */
+function rescale() {
+  if (!canRescale.value) return
+  form.ingredients = scaleIngredients(form.ingredients, quantitiesFor.value!, form.servings!)
+  toast.add({ title: `Quantités recalculées pour ${form.servings} personne${form.servings! > 1 ? 's' : ''}`, icon: 'i-lucide-calculator', duration: 2000 })
+  quantitiesFor.value = form.servings
+}
+
 async function save() {
   if (!form.name.trim()) return
-  await saveRecipe(props.owner, { id: props.recipe?.id, name: form.name, ingredients: form.ingredients, instructions: form.instructions.trim(), rating: form.rating })
+  await saveRecipe(props.owner, { id: props.recipe?.id, name: form.name, ingredients: form.ingredients, instructions: form.instructions.trim(), rating: form.rating, servings: form.servings })
   open.value = false
   toast.add({ title: 'Recette enregistrée', icon: 'i-lucide-check', color: 'success', duration: 2000 })
 }
@@ -64,6 +81,26 @@ async function remove() {
 
         <UFormField label="Note" help="Les recettes les mieux notées sont proposées en premier dans les idées.">
           <StarRating v-model="form.rating" />
+        </UFormField>
+
+        <UFormField
+          label="Nombre de personnes"
+          :help="canRescale
+            ? `Quantités saisies pour ${quantitiesFor} personne${quantitiesFor! > 1 ? 's' : ''} : recalculez-les, ou enregistrez tel quel pour corriger seulement le nombre.`
+            : 'Les quantités des aliments sont pour ce nombre de personnes.'"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <UInputNumber v-model="form.servings" placeholder="—" :min="1" :max="99" class="w-32" />
+            <UButton
+              v-if="canRescale"
+              icon="i-lucide-calculator"
+              color="primary"
+              variant="soft"
+              @click="rescale"
+            >
+              Recalculer pour {{ form.servings }}
+            </UButton>
+          </div>
         </UFormField>
 
         <UFormField label="Aliments" help="Servent à proposer la recette selon le stock. Quantité et unité facultatives.">

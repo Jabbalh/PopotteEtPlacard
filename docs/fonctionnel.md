@@ -84,6 +84,9 @@ Une recette a :
 - une **liste d'aliments** (facultative) : nom, quantité et unité facultatives ;
 - un **texte libre** (préparation, notes).
 - une **note** de 0 à 5 étoiles (facultative) : à couverture du stock égale, les recettes les mieux notées sont proposées en premier dans les idées.
+- un **nombre de personnes** (facultatif) : celui pour lequel les quantités des aliments sont saisies, affiché dans les listes de recettes et sur les idées (« 4 pers. »).
+
+**Recalculer les quantités** : sur une recette enregistrée avec un nombre de personnes, changer ce nombre fait apparaître le bouton *Recalculer pour N*, qui multiplie les quantités des aliments en proportion (arrondies : à l'unité au-delà de 100, à 0,5 de 10 à 100, au centième en dessous). Sans appui sur le bouton, seul le nombre de personnes est corrigé. Pour une nouvelle recette, le premier nombre saisi est celui des quantités ; le recalcul est possible une fois la recette enregistrée.
 
 Les aliments de la recette servent à la rapprocher du stock. Une recette en texte seul est conservée mais n'apparaît pas dans les idées.
 
@@ -349,11 +352,12 @@ Recettes utilisant des aliments qui périment dans les 14 jours, classées par u
 
 ### Détail d'une recette
 
+- **Convives** (recette avec un nombre de personnes) : nombre de personnes pour ce repas, par défaut celui de la recette. Les quantités des aliments sont recalculées en proportion (mêmes arrondis que dans la fenêtre d'édition), ainsi que le rapprochement avec le stock (suffisant ou non), les quantités *Ajouter aux courses* et celles proposées par *Je la cuisine*. La recette enregistrée n'est pas modifiée. Le choix est gardé par recette jusqu'au rechargement de l'application ; *Recette : N pers.* revient au nombre de la recette. Sur la carte, le nombre de convives s'affiche en couleur quand il diffère de celui de la recette. Sans nombre de personnes dans la recette, un message invite à le renseigner ;
 - Aliments disponibles (avec le produit et le restant ; ⚠ si la quantité est insuffisante), basiques du placard, et aliments manquants (« à acheter », ou « dans la liste de courses ») ;
 - **Ajouter aux courses (n)** : place dans la liste de courses les aliments manquants (avec la quantité de la recette) et les compléments des aliments insuffisants, sauf ceux déjà dans la liste. Annulable ;
 - texte de préparation ;
 - personnes qui l'aiment ; aversions et allergies signalées ;
-- **Je la cuisine** : popin de sortie listant les lots correspondants, le plus urgent coché par aliment, avec la quantité de la recette convertie dans l'unité du produit si elles sont comparables (500 g → 0,5 kg ; sinon « Tout »). La recette est mémorisée dans l'historique.
+- **Je la cuisine** : popin de sortie listant les lots correspondants, le plus urgent coché par aliment, avec la quantité de la recette convertie dans l'unité du produit si elles sont comparables (500 g → 0,5 kg ; sinon « Tout »). La recette est mémorisée dans l'historique (avec le nombre de convives s'il diffère de celui de la recette : « Gratin (6 pers.) »).
 
 ### Onglet « À consommer »
 
