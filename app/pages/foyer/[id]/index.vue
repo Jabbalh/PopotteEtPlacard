@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Lot, TakeLine } from '~/composables/useStock'
+import type { Lot, StockGrouping, TakeLine } from '~/composables/useStock'
 import type { PersonOpinion } from '~/composables/useSuggestions'
 import type { Product } from '~/utils/db'
 
@@ -56,22 +56,107 @@ interface Row {
   nextExpiry: string | null
 }
 
+// --- Groupement (préférence de l'appareil, non synchronisée) ---
+const grouping = useStockGrouping()
+const groupingItems: { label: string, value: StockGrouping, icon: string }[] = [
+  { label: 'Sans groupement', value: 'none', icon: 'i-lucide-list' },
+  { label: 'Par rangement', value: 'location', icon: 'i-lucide-warehouse' },
+  { label: 'Par type d\'aliment', value: 'foodType', icon: 'i-lucide-tags' },
+  { label: 'Par aliment', value: 'generic', icon: 'i-lucide-carrot' },
+  { label: 'Par péremption', value: 'expiry', icon: 'i-lucide-calendar-clock' }
+]
+const groupingIcon = computed(() => groupingItems.find(i => i.value === grouping.value)?.icon)
+
+// groupes repliés (préférence de l'appareil, par foyer et par groupement) ; une recherche déplie tout
+const { collapsed, toggle: toggleGroup, setCollapsed } = useStockCollapsed(householdId, grouping)
+const isOpen = (key: string) => !!search.value.trim() || !collapsed.value.has(key)
+
+/** Rangement encore actif d'un lot (null = sans rangement) */
+function activeLocationId(l: Lot): string | null {
+  const loc = l.item.location_id ? locationById.value.get(l.item.location_id) : undefined
+  return loc && !loc.deleted_at ? loc.id : null
+}
+
 const rows = computed<Row[]>(() => {
   const q = search.value.trim()
+  // groupé par rangement : une ligne par produit et par rangement
+  const byLocation = grouping.value === 'location'
   const groups = new Map<string, Row>()
   for (const l of lots.value) {
     if (location.value && l.item.location_id !== location.value) continue
     if (q && !(matches(q, l.product.name) || l.product.name.toLowerCase().includes(q.toLowerCase()) || l.product.brand.toLowerCase().includes(q.toLowerCase()))) continue
-    const row = groups.get(l.product.id) ?? { product: l.product, lots: [], total: 0, nextExpiry: null }
+    const key = byLocation ? `${l.product.id}|${activeLocationId(l) ?? ''}` : l.product.id
+    const row = groups.get(key) ?? { product: l.product, lots: [], total: 0, nextExpiry: null }
     row.lots.push(l)
     row.total = Math.round((row.total + l.remaining) * 1000) / 1000
     if (l.item.expires_on && (!row.nextExpiry || l.item.expires_on < row.nextExpiry)) row.nextExpiry = l.item.expires_on
-    groups.set(l.product.id, row)
+    groups.set(key, row)
   }
   const list = [...groups.values()]
   return sort.value === 'name'
     ? list.sort((a, b) => a.product.name.localeCompare(b.product.name))
     : list.sort((a, b) => (a.nextExpiry ?? '9999').localeCompare(b.nextExpiry ?? '9999') || a.product.name.localeCompare(b.product.name))
+})
+
+interface Group {
+  key: string
+  label: string
+  icon?: string
+  rows: Row[]
+}
+
+/** Tranches de péremption (date la plus proche du produit) */
+const EXPIRY_BUCKETS = [
+  { key: 'expired', label: 'Périmé', icon: 'i-lucide-circle-alert', test: (d: number) => d < 0 },
+  { key: 'soon', label: 'Dans les 3 jours', icon: 'i-lucide-alarm-clock', test: (d: number) => d <= 3 },
+  { key: 'week', label: 'Cette semaine', icon: 'i-lucide-calendar-days', test: (d: number) => d <= 7 },
+  { key: 'month', label: 'Ce mois-ci', icon: 'i-lucide-calendar', test: (d: number) => d <= 31 },
+  { key: 'later', label: 'Plus tard', icon: 'i-lucide-calendar-check', test: () => true }
+]
+
+const groups = computed<Group[]>(() => {
+  const mode = grouping.value
+  if (mode === 'none') return [{ key: 'all', label: '', rows: rows.value }]
+
+  const map = new Map<string, Group>()
+  /** ordre d'affichage des groupes (rang, puis libellé) ; « sans … » toujours en dernier */
+  const rank = new Map<string, number>()
+  const add = (key: string, label: string, order: number, row: Row, icon?: string) => {
+    let g = map.get(key)
+    if (!g) {
+      g = { key, label, icon, rows: [] }
+      map.set(key, g)
+      rank.set(key, order)
+    }
+    g.rows.push(row)
+  }
+
+  for (const row of rows.value) {
+    if (mode === 'location') {
+      const locId = row.lots[0] ? activeLocationId(row.lots[0]) : null
+      const loc = locId ? locationById.value.get(locId) : undefined
+      if (loc) add(loc.id, loc.label, loc.position, row, loc.icon || 'i-lucide-package')
+      else add('', 'Sans rangement', Infinity, row, 'i-lucide-package-open')
+    } else if (mode === 'foodType') {
+      const ft = row.product.food_type_id ? foodTypeById.value.get(row.product.food_type_id) : undefined
+      if (ft && !ft.deleted_at) add(ft.id, ft.label, ft.position, row, 'i-lucide-tag')
+      else add('', 'Sans type', Infinity, row, 'i-lucide-tag')
+    } else if (mode === 'generic') {
+      const name = row.product.generic_name.trim()
+      if (name) add(`g:${tokens(name).join(' ') || name.toLowerCase()}`,name.charAt(0).toUpperCase() + name.slice(1), 0, row, 'i-lucide-carrot')
+      else add('', 'Aliment non renseigné', Infinity, row, 'i-lucide-carrot')
+    } else {
+      if (!row.nextExpiry) {
+        add('none', 'Sans date', Infinity, row, 'i-lucide-calendar-off')
+        continue
+      }
+      const d = daysUntil(row.nextExpiry)
+      const i = EXPIRY_BUCKETS.findIndex(b => b.test(d))
+      const b = EXPIRY_BUCKETS[i]!
+      add(b.key, b.label, i, row, b.icon)
+    }
+  }
+  return [...map.values()].sort((a, b) => rank.get(a.key)! - rank.get(b.key)! || a.label.localeCompare(b.label))
 })
 
 function locationsOf(row: Row) {
@@ -138,6 +223,18 @@ function take(row: Row) {
       >
         {{ sort === 'expiry' ? 'Péremption' : 'Nom' }}
       </UButton>
+      <USelect
+        v-model="grouping"
+        :items="groupingItems"
+        :icon="groupingIcon"
+        size="sm"
+        color="neutral"
+        variant="soft"
+        aria-label="Grouper les aliments"
+        title="Grouper les aliments"
+        class="w-auto"
+        :ui="{ content: 'min-w-48' }"
+      />
     </div>
 
     <!-- Ticket de caisse en cours de saisie dans le foyer -->
@@ -201,67 +298,107 @@ function take(row: Row) {
       Aucun aliment ne correspond.
     </p>
 
-    <ul v-else class="grid grid-cols-1 gap-2 md:grid-cols-2">
-      <li
-        v-for="row in rows"
-        :key="row.product.id"
-        class="flex items-center gap-3 p-3 rounded-xl border border-default bg-elevated/40"
-      >
-        <NuxtLink :to="`/foyer/${householdId}/produit/${row.product.id}`" class="flex items-center gap-3 flex-1 min-w-0">
-          <img v-if="row.product.image_url" :src="row.product.image_url" alt="" class="size-11 rounded-lg object-contain bg-white shrink-0" loading="lazy">
-          <div v-else class="size-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <UIcon name="i-lucide-carrot" class="size-5" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5">
-              <p class="font-medium truncate">
-                {{ row.product.name }}
-              </p>
-              <NutriscoreBadge :value="row.product.nutriscore" size="sm" />
-              <StarRating v-if="row.product.rating" :model-value="row.product.rating" readonly size="sm" class="shrink-0" />
-            </div>
-            <p class="text-xs text-muted truncate">
-              {{ formatQuantity(row.total, row.product.unit) }}
-              <template v-if="row.lots.length > 1">
-                ({{ row.lots.length }} lots)
-              </template>
-              <template v-if="row.product.food_type_id && foodTypeById.get(row.product.food_type_id)">
-                · {{ foodTypeById.get(row.product.food_type_id)!.label }}
-              </template>
-              <template v-if="!location">
-                <span v-for="l in locationsOf(row)" :key="l!.id"> · {{ l!.label }}</span>
-              </template>
-            </p>
-            <div v-if="row.nextExpiry || opinionsOf(row.product).length" class="flex flex-wrap items-center gap-1 mt-1">
-              <UBadge
-                v-if="row.nextExpiry"
-                :color="expiryInfo(row.nextExpiry).color"
-                variant="subtle"
-                size="sm"
-              >
-                {{ expiryInfo(row.nextExpiry).label }}
-              </UBadge>
-              <!-- préférences des personnes du foyer (une par personne, la plus forte) -->
-              <UBadge
-                v-for="o in opinionsOf(row.product).slice(0, 3)"
-                :key="o.person.id"
-                :color="preferenceLevel(o.level).color"
-                :icon="preferenceLevel(o.level).icon"
-                variant="outline"
-                size="sm"
-                :title="`${o.person.name} : ${preferenceLevel(o.level).label.toLowerCase()} « ${o.label} »`"
-              >
-                {{ o.person.name }}
-              </UBadge>
-              <span v-if="opinionsOf(row.product).length > 3" class="text-xs text-muted">
-                +{{ opinionsOf(row.product).length - 3 }}
-              </span>
-            </div>
-          </div>
-        </NuxtLink>
-        <UButton icon="i-lucide-minus" color="neutral" variant="soft" aria-label="Retirer du stock" @click="take(row)" />
-      </li>
-    </ul>
+    <div v-else :class="grouping === 'none' ? '' : 'space-y-3'">
+      <div v-if="grouping !== 'none' && groups.length > 1 && !search.trim()" class="flex justify-end -mb-2">
+        <UButton
+          v-if="groups.some(g => !collapsed.has(g.key))"
+          icon="i-lucide-chevrons-down-up"
+          size="xs"
+          color="neutral"
+          variant="link"
+          @click="setCollapsed(groups.map(g => g.key))"
+        >
+          Tout replier
+        </UButton>
+        <UButton
+          v-else
+          icon="i-lucide-chevrons-up-down"
+          size="xs"
+          color="neutral"
+          variant="link"
+          @click="setCollapsed([])"
+        >
+          Tout déplier
+        </UButton>
+      </div>
+      <section v-for="g in groups" :key="g.key" class="space-y-2">
+        <h2 v-if="grouping !== 'none'">
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 py-1 text-sm font-semibold text-muted enabled:hover:text-default"
+            :aria-expanded="isOpen(g.key)"
+            :disabled="!!search.trim()"
+            @click="toggleGroup(g.key)"
+          >
+            <UIcon name="i-lucide-chevron-right" class="size-4 transition-transform" :class="isOpen(g.key) && 'rotate-90'" />
+            <UIcon v-if="g.icon" :name="g.icon" class="size-4" />
+            {{ g.label }}
+            <span class="font-normal">· {{ g.rows.length }}</span>
+          </button>
+        </h2>
+        <ul v-show="grouping === 'none' || isOpen(g.key)" class="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <li
+            v-for="row in g.rows"
+            :key="`${row.product.id}|${row.lots[0]?.item.id}`"
+            class="flex items-center gap-3 p-3 rounded-xl border border-default bg-elevated/40"
+          >
+            <NuxtLink :to="`/foyer/${householdId}/produit/${row.product.id}`" class="flex items-center gap-3 flex-1 min-w-0">
+              <img v-if="row.product.image_url" :src="row.product.image_url" alt="" class="size-11 rounded-lg object-contain bg-white shrink-0" loading="lazy">
+              <div v-else class="size-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <UIcon name="i-lucide-carrot" class="size-5" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <p class="font-medium truncate">
+                    {{ row.product.name }}
+                  </p>
+                  <NutriscoreBadge :value="row.product.nutriscore" size="sm" />
+                  <StarRating v-if="row.product.rating" :model-value="row.product.rating" readonly size="sm" class="shrink-0" />
+                </div>
+                <p class="text-xs text-muted truncate">
+                  {{ formatQuantity(row.total, row.product.unit) }}
+                  <template v-if="row.lots.length > 1">
+                    ({{ row.lots.length }} lots)
+                  </template>
+                  <template v-if="row.product.food_type_id && foodTypeById.get(row.product.food_type_id)">
+                    · {{ foodTypeById.get(row.product.food_type_id)!.label }}
+                  </template>
+                  <template v-if="!location && grouping !== 'location'">
+                    <span v-for="l in locationsOf(row)" :key="l!.id"> · {{ l!.label }}</span>
+                  </template>
+                </p>
+                <div v-if="row.nextExpiry || opinionsOf(row.product).length" class="flex flex-wrap items-center gap-1 mt-1">
+                  <UBadge
+                    v-if="row.nextExpiry"
+                    :color="expiryInfo(row.nextExpiry).color"
+                    variant="subtle"
+                    size="sm"
+                  >
+                    {{ expiryInfo(row.nextExpiry).label }}
+                  </UBadge>
+                  <!-- préférences des personnes du foyer (une par personne, la plus forte) -->
+                  <UBadge
+                    v-for="o in opinionsOf(row.product).slice(0, 3)"
+                    :key="o.person.id"
+                    :color="preferenceLevel(o.level).color"
+                    :icon="preferenceLevel(o.level).icon"
+                    variant="outline"
+                    size="sm"
+                    :title="`${o.person.name} : ${preferenceLevel(o.level).label.toLowerCase()} « ${o.label} »`"
+                  >
+                    {{ o.person.name }}
+                  </UBadge>
+                  <span v-if="opinionsOf(row.product).length > 3" class="text-xs text-muted">
+                    +{{ opinionsOf(row.product).length - 3 }}
+                  </span>
+                </div>
+              </div>
+            </NuxtLink>
+            <UButton icon="i-lucide-minus" color="neutral" variant="soft" aria-label="Retirer du stock" @click="take(row)" />
+          </li>
+        </ul>
+      </section>
+    </div>
 
     <!-- Boutons d'ajout -->
     <div class="fixed z-20 right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] flex lg:hidden flex-col items-end gap-2">

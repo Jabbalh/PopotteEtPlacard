@@ -154,6 +154,8 @@ Règles :
 - **Filtre par rangement** : *Tout* ou un rangement, avec le nombre de lots.
 - **Recherche** par nom ou marque (accents et pluriels ignorés).
 - **Tri** : par date de péremption la plus proche (défaut) ou par nom.
+- **Groupement** : sans groupement (défaut), par rangement, par type d'aliment, par aliment (nom générique) ou par péremption (périmé, dans les 3 jours, cette semaine, ce mois-ci, plus tard, sans date). Chaque groupe a un titre avec son nombre d'aliments ; les groupes « sans … » viennent en dernier. Par rangement, un produit rangé à plusieurs endroits apparaît dans chacun, avec les seuls lots de ce rangement. Le choix est propre à l'appareil (non synchronisé) et vaut pour tous les foyers.
+  - Toucher le titre d'un groupe le **replie ou le déplie** ; *Tout replier* / *Tout déplier* au-dessus de la liste. Les groupes repliés sont mémorisés sur l'appareil, par foyer et par groupement. Pendant une recherche, tous les groupes sont dépliés.
 - Une ligne par produit, regroupant ses lots :
   - photo ou icône, nom, Nutri-Score, étoiles si favori ;
   - quantité totale, nombre de lots, type d'aliment, rangement(s) ;

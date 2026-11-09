@@ -133,7 +133,7 @@ Une base IndexedDB **par utilisateur** : `popotte-<userId>` (`openDb(userId)`), 
 | `pantryStaples` | `pp_pantry_staples` | `id, household_id, _dirty` |
 | `shoppingItems` | `pp_shopping_items` | `id, household_id, _dirty` |
 | `profiles` | `profiles` (lecture seule) | `id` |
-| `meta` | — | `key` (curseurs de synchro) |
+| `meta` | — | `key` (curseurs de synchro ; préférences de l'appareil `pref:*`, jamais synchronisées, `useLocalPref()` ; ex. `pref:stockGrouping` (`useStockGrouping()`), `pref:stockCollapsed:<foyer>:<groupement>` (`useStockCollapsed()`)) |
 
 Champs techniques de chaque ligne synchronisée :
 - `_dirty` : `1` = modification locale non envoyée ;

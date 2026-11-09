@@ -226,3 +226,45 @@ export function useMyTastes() {
   )
   return { preferences, recipes, owner: { userId } as TasteOwner }
 }
+
+/** Groupement de l'écran Stock */
+export type StockGrouping = 'none' | 'location' | 'foodType' | 'generic' | 'expiry'
+const STOCK_GROUPINGS: StockGrouping[] = ['none', 'location', 'foodType', 'generic', 'expiry']
+
+/**
+ * Préférence de l'appareil, enregistrée dans la table locale `meta` (clé `pref:*`, jamais synchronisée).
+ * `valid` écarte une valeur enregistrée invalide (retour à la valeur par défaut).
+ */
+export function useLocalPref<T>(key: MaybeRefOrGetter<string>, fallback: T, valid: (v: unknown) => boolean = () => true) {
+  const db = useDb()
+  const { data } = useLiveQuery(async () => (await db.meta.get(toValue(key)))?.value, undefined as unknown, [() => toValue(key)])
+  return computed<T>({
+    get: () => (data.value !== undefined && valid(data.value) ? data.value as T : fallback),
+    set: (value) => {
+      data.value = value
+      db.meta.put({ key: toValue(key), value }).catch(e => console.error('[pref]', toValue(key), e))
+    }
+  })
+}
+
+/** Groupement choisi sur l'écran Stock : propre à l'appareil, commun à tous les foyers */
+export function useStockGrouping() {
+  return useLocalPref<StockGrouping>('pref:stockGrouping', 'none', v => STOCK_GROUPINGS.includes(v as StockGrouping))
+}
+
+/** Groupes repliés sur l'écran Stock : propres à l'appareil, par foyer et par groupement */
+export function useStockCollapsed(householdId: Ref<string>, grouping: Ref<StockGrouping>) {
+  const pref = useLocalPref<string[]>(() => `pref:stockCollapsed:${householdId.value}:${grouping.value}`, [], Array.isArray)
+  const collapsed = computed(() => new Set(pref.value))
+  function toggle(groupKey: string) {
+    const next = new Set(pref.value)
+    if (next.has(groupKey)) next.delete(groupKey)
+    else next.add(groupKey)
+    pref.value = [...next]
+  }
+  /** Replie les groupes donnés (ou déplie tout avec une liste vide) */
+  function setCollapsed(groupKeys: string[]) {
+    pref.value = groupKeys
+  }
+  return { collapsed, toggle, setCollapsed }
+}
