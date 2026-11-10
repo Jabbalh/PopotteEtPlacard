@@ -35,6 +35,42 @@ function contains(haystack: string[], needle: string[]): boolean {
 }
 
 /**
+ * Aliments composés qui ne sont pas une variété de leur premier mot : le lait de coco
+ * n'est pas du lait, la pâte feuilletée n'est pas des pâtes. Un tel aliment ne correspond
+ * jamais à un libellé qui ne porte que ce premier mot (« Lait », « Lait demi-écrémé »).
+ * Il reste trouvé par son complément : une allergie « cacahuète » signale toujours le
+ * « beurre de cacahuète ».
+ * Volontairement absents : les aliments qui restent une variété du premier mot, pour ne pas
+ * masquer une allergie (« lait de chèvre », « noix de cajou ») ni un basique du placard
+ * (« huile d'olive », « farine de blé »).
+ */
+const COMPOUNDS: [head: string, complement: string][] = [
+  'lait de coco', 'lait d\'amande', 'lait de soja', 'lait d\'avoine', 'lait de riz', 'lait de noisette',
+  'crème de coco', 'crème de soja', 'crème de marrons', 'crème de cassis',
+  'beurre de cacahuète', 'beurre de cacao',
+  'noix de coco', 'noix de muscade', 'noix de Saint-Jacques',
+  'pâte feuilletée', 'pâte brisée', 'pâte sablée', 'pâte à tarte', 'pâte à pizza', 'pâte d\'amande', 'pâte à tartiner',
+  'chou-fleur', 'chou de Bruxelles',
+  'eau de coco', 'eau de rose', 'eau de vie', 'eau de fleur d\'oranger',
+  'pain d\'épices'
+].map((text) => {
+  // mêmes mots que ceux comparés ensuite (sans accents, sans « de », au singulier)
+  const [head, complement] = tokens(text)
+  return [head!, complement!]
+})
+
+/** Position d'un aliment composé (deux mots qui se suivent) dans une liste de mots */
+function hasCompound(words: string[], head: string, complement: string): boolean {
+  return words.some((w, i) => w === head && words[i + 1] === complement)
+}
+
+/** `a` nomme un aliment composé alors que `b` ne porte que son premier mot (« lait de coco » / « lait ») */
+function headOnly(a: string[], b: string[]): boolean {
+  return COMPOUNDS.some(([head, complement]) =>
+    hasCompound(a, head, complement) && b.includes(head) && !hasCompound(b, head, complement))
+}
+
+/**
  * Indice de correspondance entre un libellé recherché (ingrédient, préférence)
  * et un produit : 0 = aucun, 2 = le nom du produit commence par le libellé, 1 = contenu.
  */
@@ -42,6 +78,7 @@ export function matchScore(label: string, productName: string): number {
   const a = tokens(label)
   const b = tokens(productName)
   if (!a.length || !b.length) return 0
+  if (headOnly(a, b) || headOnly(b, a)) return 0
   if (contains(b, a)) return b[0] === a[0] ? 2 : 1
   // « Lait » recherché, produit nommé « Lait demi-écrémé » : couvert ci-dessus ;
   // produit très court (« Beurre ») et libellé plus précis (« beurre doux ») :

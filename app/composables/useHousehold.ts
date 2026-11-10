@@ -90,7 +90,7 @@ export function useHouseholdActions() {
   async function createHousehold(input: { name: string, myName: string }) {
     const userId = user.value!.id
     const household: Household = { ...base(), name: input.name.trim(), created_by: userId }
-    const me: Person = { ...base(), household_id: household.id, name: input.myName.trim(), user_id: userId, role: 'owner', invite_token: null }
+    const me: Person = { ...base(), household_id: household.id, name: input.myName.trim(), user_id: userId, role: 'owner', invite_pending: false }
     await db.transaction('rw', [db.households, db.people, db.locations, db.foodTypes], async () => {
       await db.households.add(household)
       await db.people.add(me)
@@ -107,7 +107,7 @@ export function useHouseholdActions() {
   // --- Personnes ---
 
   async function addPerson(householdId: string, name: string) {
-    const person: Person = { ...base(), household_id: householdId, name: name.trim(), user_id: null, role: 'member', invite_token: null }
+    const person: Person = { ...base(), household_id: householdId, name: name.trim(), user_id: null, role: 'member', invite_pending: false }
     await db.people.add(person)
     schedule()
     return person

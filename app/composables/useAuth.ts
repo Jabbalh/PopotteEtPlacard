@@ -1,4 +1,4 @@
-import type { Session } from '@supabase/supabase-js'
+import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js'
 
 export interface AppUser {
   id: string
@@ -28,7 +28,39 @@ const user = ref<AppUser | null>(null)
 /** Administrateur de l'application (affichage uniquement : les droits sont vérifiés par la base) */
 const isAdmin = ref(false)
 const ready = ref(false)
+/**
+ * Session définitivement perdue (jeton expiré ou révoqué) sans déconnexion volontaire :
+ * 'startup' = constaté au lancement (le middleware redirige), 'live' = en cours d'utilisation
+ */
+const sessionExpired = ref<false | 'startup' | 'live'>(false)
 let initPromise: Promise<void> | null = null
+/** déconnexion demandée par l'utilisateur en cours (l'événement SIGNED_OUT n'est alors pas une expiration) */
+let signingOut = false
+
+const PUBLIC_ROUTES = ['/connexion', '/nouveau-mot-de-passe']
+
+/** Route accessible sans être connecté */
+export function isPublicRoute(path: string) {
+  return PUBLIC_ROUTES.includes(path) || path.startsWith('/inscription/')
+}
+
+function clearUser() {
+  user.value = null
+  isAdmin.value = false
+  writeCachedUser(null)
+  writeCachedAdmin(null)
+}
+
+/**
+ * La session n'existe plus côté Supabase : on oublie l'utilisateur en cache, sinon l'app
+ * resterait utilisable en apparence alors que plus rien n'est envoyé au serveur.
+ * La base locale est conservée : les modifications en attente partiront à la reconnexion.
+ */
+function expireSession() {
+  if (!user.value) return
+  clearUser()
+  sessionExpired.value = ready.value ? 'live' : 'startup'
+}
 
 function fromSession(session: Session | null): AppUser | null {
   if (!session?.user) return null
@@ -70,26 +102,42 @@ export function useAuth() {
     writeCachedAdmin(data ? u.id : null)
   }
 
+  /**
+   * Session courante. `state` :
+   * - 'ok' : session valide ;
+   * - 'none' : définitivement absente (jamais connecté, jeton expiré ou révoqué) ;
+   * - 'unknown' : impossible à vérifier (hors ligne, serveur injoignable) — on garde l'utilisateur en cache.
+   */
+  async function loadSession(): Promise<{ session: Session | null, state: 'ok' | 'none' | 'unknown' }> {
+    try {
+      const { data, error } = await supabase.auth.getSession()
+      if (data.session) return { session: data.session, state: 'ok' }
+      return { session: null, state: error && isAuthRetryableFetchError(error) ? 'unknown' : 'none' }
+    } catch {
+      return { session: null, state: 'unknown' }
+    }
+  }
+
   function init() {
     if (initPromise) return initPromise
     initPromise = (async () => {
       user.value = readCachedUser()
-      try {
-        const { data } = await supabase.auth.getSession()
-        const u = fromSession(data.session)
-        if (u) {
-          user.value = u
-          writeCachedUser(u)
-        }
-      } catch { /* hors ligne : on garde le cache */ }
+      const { session, state } = await loadSession()
+      const u = fromSession(session)
+      if (u) {
+        user.value = u
+        writeCachedUser(u)
+      } else if (state === 'none') {
+        // utilisateur en cache mais plus de session : expirée ou révoquée depuis la dernière visite
+        expireSession()
+      }
       if (user.value) loadRole(user.value)
 
       supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_OUT') {
-          user.value = null
-          isAdmin.value = false
-          writeCachedUser(null)
-          writeCachedAdmin(null)
+          // hors déconnexion volontaire : jeton de rafraîchissement refusé, ou déconnexion dans un autre onglet
+          if (signingOut) clearUser()
+          else expireSession()
           return
         }
         const u = fromSession(session)
@@ -97,6 +145,7 @@ export function useAuth() {
           const changed = u.id !== user.value?.id
           user.value = u
           writeCachedUser(u)
+          sessionExpired.value = false
           if (changed || event === 'SIGNED_IN') loadRole(u)
         }
       })
@@ -140,15 +189,14 @@ export function useAuth() {
   }
 
   async function signOut() {
+    signingOut = true
     try {
       await supabase.auth.signOut({ scope: 'local' })
     } finally {
-      user.value = null
-      isAdmin.value = false
-      writeCachedUser(null)
-      writeCachedAdmin(null)
+      clearUser()
+      signingOut = false
     }
   }
 
-  return { user, isAdmin, ready, init, signIn, signUp, signOut, resetPassword, updatePassword }
+  return { user, isAdmin, ready, sessionExpired, init, loadSession, expireSession, signIn, signUp, signOut, resetPassword, updatePassword }
 }

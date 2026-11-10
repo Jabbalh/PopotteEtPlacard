@@ -8,9 +8,9 @@ const { addPerson } = useHouseholdActions()
 
 const countOf = computed(() => new Map(tastes.value.map(t => [t.person.id, { prefs: t.preferences.length, recipes: t.recipes.length }])))
 
-function status(p: { user_id: string | null, invite_token: string | null, role: string }) {
+function status(p: { user_id: string | null, invite_pending?: boolean, role: string }) {
   if (p.user_id) return { label: p.role === 'owner' ? 'Propriétaire' : `Compte : ${accountName(p.user_id) ?? 'lié'}`, icon: 'i-lucide-user-check', color: 'success' as const }
-  if (p.invite_token) return { label: 'Invitation en attente', icon: 'i-lucide-mail', color: 'warning' as const }
+  if (p.invite_pending) return { label: 'Invitation en attente', icon: 'i-lucide-mail', color: 'warning' as const }
   return { label: 'Sans compte', icon: 'i-lucide-user', color: 'neutral' as const }
 }
 

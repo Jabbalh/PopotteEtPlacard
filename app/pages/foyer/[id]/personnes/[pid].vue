@@ -37,8 +37,22 @@ async function saveName() {
 }
 
 // --- Invitation (lier un compte à cette personne) ---
-const inviteUrl = computed(() => person.value?.invite_token ? `${location.origin}/rejoindre/${person.value.invite_token}` : '')
+// Le jeton n'est pas synchronisé (les autres membres ne doivent pas pouvoir transmettre le lien) :
+// le propriétaire le lit sur le serveur quand une invitation est en cours.
+const inviteToken = ref<string | null>(null)
+const inviteUrl = computed(() => inviteToken.value ? `${location.origin}/rejoindre/${inviteToken.value}` : '')
 const busy = ref(false)
+
+watch([personId, () => !!person.value?.invite_pending, isOwner, online], async ([id, pending, own, on]) => {
+  if (!pending || !own) {
+    // rien à lire ; pendant setInvite, le jeton vient d'être posé et « en cours » n'est pas encore reçu
+    if (!busy.value) inviteToken.value = null
+    return
+  }
+  if (!on) return
+  const { data, error } = await supabase.rpc('pp_person_invite_token', { p_person_id: id })
+  if (!error && personId.value === id) inviteToken.value = data ?? null
+}, { immediate: true })
 
 async function setInvite(token: string | null) {
   busy.value = true
@@ -47,6 +61,7 @@ async function setInvite(token: string | null) {
     await sync()
     const { error } = await supabase.from('pp_people').update({ invite_token: token }).eq('id', personId.value)
     if (error) throw error
+    inviteToken.value = token
     await sync()
     if (token) await share()
     else toast.add({ title: 'Invitation annulée', icon: 'i-lucide-link-2-off' })
@@ -205,6 +220,9 @@ function askDelete() {
               Lien à usage unique. La personne doit déjà avoir un compte : sinon, un administrateur peut lui envoyer une invitation à créer son compte.
             </p>
           </div>
+          <p v-else-if="person.invite_pending" class="text-xs text-muted">
+            Invitation en attente{{ online ? '…' : ' : le lien s\'affichera une fois la connexion revenue.' }}
+          </p>
           <UButton v-else block icon="i-lucide-mail-plus" :loading="busy" :disabled="!online" @click="setInvite(randomToken())">
             Inviter {{ person.name }} à lier son compte
           </UButton>

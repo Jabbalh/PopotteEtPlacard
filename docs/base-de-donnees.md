@@ -177,7 +177,8 @@ Colonnes communes à toutes les tables `pp_*` : `created_at timestamptz not null
 | `name` | text | not null | Prénom |
 | `user_id` | uuid | → `profiles` **on delete set null** | Compte lié (= accès au foyer) |
 | `role` | text | `owner` \| `member`, défaut `member` | Immuable après création |
-| `invite_token` | text | unique | Lien d'invitation en cours (usage unique) |
+| `invite_token` | text | unique | Lien d'invitation en cours (usage unique). **Non lisible par l'API** (pas de droit `select` sur la colonne) : le propriétaire le lit par `pp_person_invite_token()` |
+| `invite_pending` | boolean | calculée (`invite_token is not null`), stockée | Une invitation est en cours ; lue par la synchro à la place du jeton |
 
 Index :
 - `pp_people_household_updated_idx (household_id, updated_at)` ;
@@ -367,8 +368,9 @@ Toutes en `security definer` avec `search_path = public`, exécutables par `auth
 | `pp_invite_preview(token) → (household_name, person_name)` | Aperçu d'une invitation valide (personne non supprimée, sans compte, foyer non supprimé) | Aucune ligne si invalide |
 | `pp_accept_invite(token) → household_id` | Lie le compte connecté à la personne et efface le jeton (usage unique) | `P0002` lien invalide ou déjà utilisé ; `P0001` déjà membre du foyer |
 | `pp_leave_household(household)` | Délie le compte de sa personne dans le foyer (la personne reste) | `P0001` le propriétaire ne peut pas quitter |
+| `pp_person_invite_token(person) → text` | Jeton d'invitation en cours d'une personne, pour le **propriétaire** du foyer uniquement | `null` si pas d'invitation ou si l'appelant n'est pas propriétaire |
 
-Ces deux dernières positionnent la variable de transaction `pp.trusted = on` pour passer le contrôle du trigger `pp_guard_person`. Elle n'est pas positionnable depuis l'API (PostgREST n'expose pas `set_config`).
+`pp_accept_invite` et `pp_leave_household` positionnent la variable de transaction `pp.trusted = on` pour passer le contrôle du trigger `pp_guard_person`. Elle n'est pas positionnable depuis l'API (PostgREST n'expose pas `set_config`).
 
 ### Fonctions de trigger
 
@@ -406,6 +408,8 @@ Lors d'un upsert, `created_by` est d'abord forcé à l'utilisateur connecté (ce
 ## 6. Sécurité (RLS et droits)
 
 RLS activée sur toutes les tables `pp_*`. Droits accordés à `authenticated` : `select, insert, update` (jamais `delete` : suppression douce uniquement). Aucun droit pour `anon`.
+
+**Exception `pp_people`** : le droit `select` est accordé **colonne par colonne**, sur tout sauf `invite_token` (migration `20261110110000_people_hide_invite_token.sql`, à exécuter une fois les appareils à jour). Un membre non propriétaire ne peut donc ni lire le jeton ni filtrer dessus, et `select *` est refusé (`42501`) : la synchro liste ses colonnes (`TABLES.people.columns` dans `useSync.ts`). **Toute colonne ajoutée à `pp_people` doit être ajoutée à ce `grant select` et à cette liste.**
 
 | Table | Lecture | Insertion | Modification |
 |---|---|---|---|

@@ -109,6 +109,7 @@ Les composables et utilitaires sont **auto-importés** par Nuxt.
 
 - `useAuth()` expose `user`, `isAdmin`, `signIn`, `signUp`, `signOut`, `resetPassword`, `updatePassword`.
 - L'utilisateur est mis en cache dans `localStorage` (`pep:user`) : hors connexion, l'app reste utilisable même si le jeton ne peut pas être rafraîchi.
+- Session perdue : `loadSession()` distingue `'unknown'` (invérifiable : hors ligne, erreur réseau `isAuthRetryableFetchError` → on garde le cache) de `'none'` (définitivement absente : jeton expiré ou révoqué). Dans ce second cas — au lancement (`init`), à la synchro, ou sur l'événement `SIGNED_OUT` hors déconnexion volontaire — `expireSession()` oublie l'utilisateur en cache et renseigne `sessionExpired` (`'startup'` / `'live'`) ; `app.vue` affiche « Session expirée » et, en cours d'utilisation, renvoie vers `/connexion?redirect=…`. La base locale est conservée : les modifications en attente partent à la reconnexion.
 - Le rôle admin est lu dans `app_admins` et mis en cache (`pep:admin`). Il ne sert qu'à l'affichage : les droits sont vérifiés par RLS.
 - `signUp` transmet le jeton d'invitation admin dans `options.data.app_invite`. Le contrôle est fait par les triggers `guard_signup` / `handle_new_user` (hérités de Pas ce soir) sur `auth.users`.
 - Le middleware global redirige vers `/connexion?redirect=…` les routes non publiques ; `/connexion`, `/nouveau-mot-de-passe` et `/inscription/*` sont publiques.
@@ -152,6 +153,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 | 5 | `receiptLines` synchronisée (index `_dirty`) : les lignes en attente existantes reçoivent `updated_at`, `deleted_at = null` et sont marquées à envoyer |
 | 6 | `recipes.rating = 0` sur les lignes existantes (colonne non nulle côté serveur) |
 | 7 | Tables `pantryStaples` et `shoppingItems` (synchronisées) ; `products.generic_name = ''` sur les lignes existantes |
+| 8 | `people.invite_token` retiré des lignes existantes (le jeton n'est plus conservé sur l'appareil), remplacé par `invite_pending` |
 
 ## 6. Synchronisation
 
@@ -167,9 +169,13 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 
 1. `households` : upsert unitaire. `deleted_at` n'est envoyé que si l'utilisateur est propriétaire (sinon refus serveur).
 2. Puis, dans l'ordre des clés étrangères : `people`, `locations`, `foodTypes`, `products`, `receiptAliases`, `receiptLines`, `stockItems`, `movements`, `preferences`, `recipes`, par lots de 100, en **upsert** des colonnes déclarées dans `TABLES[...].fields`.
-3. Lot refusé pour droits (`42501`, `PGRST301`) : renvoi ligne par ligne pour isoler la ligne fautive, qui est journalisée puis marquée propre (ex. foyer quitté entre-temps). Toute autre erreur interrompt la synchro (`lastError`).
+3. Lot refusé pour droits (`42501`, `PGRST301`) ou pour son contenu (`isRowError` : SQLSTATE de classe 22 ou 23 — valeur invalide, `check`, `not null`, clé étrangère, unicité) : renvoi ligne par ligne pour isoler la ligne fautive.
+   - Droits refusés : la ligne est journalisée puis marquée propre (ex. foyer quitté entre-temps).
+   - Contenu refusé : la ligne **reste `_dirty`** (rien n'est perdu) mais est notée dans `rejected` (en mémoire, clé `<table>:<id>` + `_lmod`) et écartée des envois suivants ; la synchro continue (autres lignes, autres tables, réception). `lastError` indique le nombre de lignes refusées et le premier message. Elle est retentée si elle est modifiée, après toute écriture locale (`schedule()` vide `rejected`) et au prochain lancement.
+   - Toute autre erreur (réseau, colonne inconnue du serveur parce qu'une migration n'a pas été exécutée…) interrompt la synchro (`lastError`).
+4. Avant tout envoi, `loadSession()` (`useAuth`) : session impossible à vérifier → `lastError`, pas de synchro ; session définitivement absente → `expireSession()` (voir § 4).
 
-**Cas particulier `people`** : `user_id`, `role` et `invite_token` ne sont **jamais** envoyés, sauf `user_id` + `role` pour la personne du créateur d'un foyer (création hors ligne). Le lien personne ↔ compte est protégé côté serveur (voir [base-de-donnees.md § Règles](base-de-donnees.md#5-règles-métier-triggers)).
+**Cas particulier `people`** : `invite_token` n'est ni lu ni envoyé par la synchro (les membres n'ont pas le droit de lire la colonne ; la lecture liste ses colonnes, `TABLES.people.columns`, dont `invite_pending`). Le propriétaire lit le jeton en ligne par la RPC `pp_person_invite_token` (fiche personne) et le pose par une mise à jour directe. `user_id` et `role` ne sont **jamais** envoyés, sauf `user_id` + `role` pour la personne du créateur d'un foyer (création hors ligne). Le lien personne ↔ compte est protégé côté serveur (voir [base-de-donnees.md § Règles](base-de-donnees.md#5-règles-métier-triggers)).
 
 ### Réception (pull)
 
@@ -222,6 +228,8 @@ Recettes communes (`useHouseholdRecipes`) : `household_id = foyer`, sans `person
 - `2` : tous les mots du libellé sont dans le produit et le premier mot correspond ;
 - `1` : tous les mots du libellé sont dans le produit, ou tous ceux du produit dans le libellé ;
 - `0` : aucune correspondance.
+
+Aliments composés (`COMPOUNDS`) : « lait de coco », « beurre de cacahuète », « pâte feuilletée », « noix de coco », « chou-fleur »… ne sont pas une variété de leur premier mot. `matchScore` vaut `0` quand un seul des deux libellés nomme l'aliment composé et que l'autre porte son premier mot (« lait de coco » / « Lait demi-écrémé », « pâtes » / « Pâte brisée »). Le complément reste trouvé : une allergie « cacahuète » signale le « beurre de cacahuète ». La liste exclut volontairement les variétés réelles du premier mot (« lait de chèvre », « noix de cajou » : une allergie doit les signaler ; « huile d'olive » : couverte par le basique « Huile »).
 
 `productMatchScore(libellé, produit)` : meilleur de `matchScore` sur `name` et sur `generic_name` (aliment générique). `sameFood(a, b)` : mêmes mots significatifs (doublons de la liste de courses).
 

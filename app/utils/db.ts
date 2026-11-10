@@ -30,7 +30,11 @@ export interface Person extends SyncFields, Timestamps {
   /** compte lié (accès au foyer + préférences du compte) */
   user_id: string | null
   role: PersonRole
-  invite_token: string | null
+  /**
+   * une invitation à lier un compte est en cours (calculé par le serveur, jamais envoyé).
+   * Le jeton lui-même n'est pas synchronisé : seul le propriétaire le lit (pp_person_invite_token).
+   */
+  invite_pending?: boolean
 }
 
 /** Lieu de stockage (Frigo, Congélateur…) ou type d'aliment, paramétrables par foyer */
@@ -311,6 +315,11 @@ export function openDb(userId: string): AppDb {
       shoppingItems: 'id, household_id, _dirty'
     }).upgrade(tx => tx.table('products').toCollection().modify((p: Partial<Product>) => {
       p.generic_name ??= ''
+    }))
+    // invitations : le jeton n'est plus conservé sur l'appareil, seulement « invitation en cours »
+    db.version(8).stores({}).upgrade(tx => tx.table('people').toCollection().modify((p: Partial<Person> & { invite_token?: string | null }) => {
+      p.invite_pending = !!p.invite_token
+      delete p.invite_token
     }))
     instances.set(userId, db)
   }

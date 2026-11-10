@@ -24,6 +24,8 @@ interface TableSpec {
   remote: string
   /** colonnes envoyées au serveur (updated_at est toujours horodaté par le serveur) */
   fields: readonly string[]
+  /** colonnes lues sur le serveur (par défaut toutes) */
+  columns?: string
   /** rattachement : par foyer, et/ou par compte (préférences et recettes de niveau compte) */
   byHousehold: boolean
   byUser: boolean
@@ -32,8 +34,11 @@ interface TableSpec {
 const TABLES: Record<Exclude<SyncedTable, 'households'>, TableSpec> = {
   people: {
     remote: 'pp_people',
-    // user_id / role / invite_token ne sont jamais envoyés par la synchro (voir pushPeople)
+    // user_id / role ne sont jamais envoyés par la synchro (voir pushRows)
     fields: ['id', 'household_id', 'name', 'created_at', 'deleted_at'],
+    // tout sauf invite_token : le jeton d'invitation n'est lisible que par le propriétaire
+    // (pp_person_invite_token) ; les membres n'ont pas le droit de lire la colonne
+    columns: 'id, household_id, name, user_id, role, invite_pending, created_at, updated_at, deleted_at',
     byHousehold: true,
     byUser: false
   },
@@ -130,6 +135,39 @@ function isPermissionError(err: { code?: string } | null) {
   return err?.code === '42501' || err?.code === 'PGRST301'
 }
 
+/**
+ * Erreur propre aux données d'une ligne : valeur invalide (classe 22) ou contrainte
+ * non respectée (classe 23 : check, not null, clé étrangère, unicité).
+ * Les autres erreurs (réseau, colonne inconnue du serveur…) concernent toute la synchro.
+ */
+function isRowError(err: { code?: string } | null) {
+  return /^(22|23)/.test(err?.code ?? '')
+}
+
+/**
+ * Lignes refusées par le serveur pour leur contenu : laissées « à envoyer » mais écartées des
+ * envois suivants, pour qu'une ligne invalide ne bloque pas le reste de la synchro.
+ * Clé `<table>:<id>` ; une ligne est retentée dès qu'elle est modifiée (_lmod différent),
+ * après toute écriture locale (la cause est peut-être corrigée) et au prochain lancement de l'app.
+ */
+const rejected = new Map<string, { lmod: number, remote: string, message: string }>()
+
+function reject(name: SyncedTable, remote: string, row: { id: string, _lmod: number }, err: { message: string }) {
+  rejected.set(`${name}:${row.id}`, { lmod: row._lmod, remote, message: err.message })
+  console.warn(`[sync] ${remote} refusé (données)`, row.id, err.message)
+}
+
+function isRejected(name: SyncedTable, row: { id: string, _lmod: number }) {
+  return rejected.get(`${name}:${row.id}`)?.lmod === row._lmod
+}
+
+function rejectedMessage(): string | null {
+  const first = rejected.values().next().value
+  if (!first) return null
+  const count = rejected.size > 1 ? `${rejected.size} modifications refusées` : 'Une modification refusée'
+  return `${count} par le serveur (${first.remote} : ${first.message})`
+}
+
 /** Efface toutes les données locales d'un foyer (supprimé ou quitté) */
 async function purgeHousehold(db: AppDb, householdId: string) {
   await db.households.delete(householdId)
@@ -148,7 +186,7 @@ async function purgeHousehold(db: AppDb, householdId: string) {
  */
 export function useSync() {
   const supabase = useSupabase()
-  const { user } = useAuth()
+  const { user, loadSession, expireSession } = useAuth()
 
   async function refreshPending() {
     if (!user.value) return
@@ -163,14 +201,20 @@ export function useSync() {
   async function pushHouseholds(db: AppDb, userId: string) {
     const dirty = await db.households.where('_dirty').equals(1).toArray()
     for (const h of dirty) {
+      if (isRejected('households', h)) continue
       const isOwner = h.created_by === userId
         || !!(await db.people.where('household_id').equals(h.id).filter(p => p.user_id === userId && p.role === 'owner').first())
       const payload: Record<string, unknown> = { id: h.id, name: h.name, created_by: h.created_by, created_at: h.created_at }
       // Seul le propriétaire peut supprimer : on n'envoie pas ce champ sinon (refus serveur)
       if (isOwner) payload.deleted_at = h.deleted_at
       const { error } = await supabase.from('pp_households').upsert(payload)
+      if (error && isRowError(error)) {
+        reject('households', 'pp_households', h, error)
+        continue
+      }
       if (error && !isPermissionError(error)) throw error
       if (error) console.warn('[sync] foyer refusé', h.id, error.message)
+      rejected.delete(`households:${h.id}`)
       await markClean(db.households as unknown as Table<Row, string>, [h])
     }
   }
@@ -190,20 +234,28 @@ export function useSync() {
       return payload
     }
 
-    const dirty = await table.where('_dirty').equals(1).toArray()
+    const dirty = (await table.where('_dirty').equals(1).toArray()).filter(r => !isRejected(name, r))
     for (let i = 0; i < dirty.length; i += BATCH_SIZE) {
       const batch = dirty.slice(i, i + BATCH_SIZE)
       const { error } = await supabase.from(spec.remote).upsert(batch.map(toPayload))
       if (!error) {
+        for (const row of batch) rejected.delete(`${name}:${row.id}`)
         await markClean(table, batch)
         continue
       }
-      if (!isPermissionError(error)) throw error
-      // Lot refusé : on isole la ou les lignes fautives (foyer quitté, etc.)
+      if (!isPermissionError(error) && !isRowError(error)) throw error
+      // Lot refusé : on isole la ou les lignes fautives
       for (const row of batch) {
         const { error: e } = await supabase.from(spec.remote).upsert(toPayload(row))
+        if (e && isRowError(e)) {
+          // contenu refusé (contrainte, clé étrangère…) : la ligne reste à envoyer, la synchro continue
+          reject(name, spec.remote, row, e)
+          continue
+        }
         if (e && !isPermissionError(e)) throw e
+        // droits refusés (foyer quitté, etc.) : la modification est abandonnée
         if (e) console.warn(`[sync] ${spec.remote} refusé`, row.id, e.message)
+        rejected.delete(`${name}:${row.id}`)
         await markClean(table, [row])
       }
     }
@@ -243,25 +295,27 @@ export function useSync() {
     while (true) {
       const { data, error } = await supabase
         .from(spec.remote)
-        .select('*')
+        .select(spec.columns ?? '*')
         .eq(column, value)
         .gt('updated_at', since)
         .order('updated_at', { ascending: true })
         .order('id', { ascending: true })
         .range(from, from + PAGE_SIZE - 1)
       if (error) throw error
-      if (!data.length) break
+      // liste de colonnes non littérale : le type des lignes n'est pas déduit par supabase-js
+      const rows = data as unknown as ({ id: string, updated_at: string } & Record<string, unknown>)[]
+      if (!rows.length) break
 
       await db.transaction('rw', table, async () => {
-        for (const row of data) {
+        for (const row of rows) {
           const local = await table.get(row.id)
           if (local?._dirty) continue
           await table.put({ ...row, _dirty: 0, _lmod: local?._lmod ?? 0 })
         }
       })
-      const last = data[data.length - 1]!.updated_at as string
+      const last = rows[rows.length - 1]!.updated_at
       if (new Date(last) > new Date(cursor)) cursor = last
-      if (data.length < PAGE_SIZE) break
+      if (rows.length < PAGE_SIZE) break
       from += PAGE_SIZE
     }
     await db.meta.put({ key: cursorKey, value: cursor })
@@ -296,8 +350,16 @@ export function useSync() {
 
   async function doSync() {
     if (!user.value || !online.value) return
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
+    const { state } = await loadSession()
+    if (state === 'unknown') {
+      lastError.value = 'Session impossible à vérifier (connexion internet indisponible ?)'
+      return
+    }
+    if (state === 'none') {
+      // jeton expiré ou révoqué : plus rien ne peut être envoyé, il faut se reconnecter
+      expireSession()
+      return
+    }
     const userId = user.value.id
     const db = openDb(userId)
     syncing.value = true
@@ -314,7 +376,7 @@ export function useSync() {
       await pullUsers(db, userId, householdIds)
 
       lastSyncAt.value = new Date()
-      lastError.value = null
+      lastError.value = rejectedMessage()
     } catch (e) {
       lastError.value = e instanceof Error ? e.message : String(e)
       console.error('[sync]', e)
@@ -343,6 +405,8 @@ export function useSync() {
 
   /** À appeler après chaque écriture locale */
   function schedule(delay = 800) {
+    // une écriture locale a pu corriger la cause d'un refus (produit dont dépend un lot…) : on retente tout
+    rejected.clear()
     refreshPending()
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => sync(), delay)
