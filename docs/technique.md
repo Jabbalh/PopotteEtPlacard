@@ -100,6 +100,7 @@ app/
 │   └── PwaPrompts.vue              mise à jour, installation
 └── pages/                          voir docs/fonctionnel.md § 16
 supabase/migrations/                migration SQL de l'application
+test/                               tests unitaires Vitest des fonctions pures de app/utils (matching, receipt, format, servings)
 public/                             icônes PWA (générées depuis icon.svg)
 ```
 
@@ -110,13 +111,13 @@ Les composables et utilitaires sont **auto-importés** par Nuxt.
 - `useAuth()` expose `user`, `isAdmin`, `signIn`, `signUp`, `signOut`, `resetPassword`, `updatePassword`.
 - L'utilisateur est mis en cache dans `localStorage` (`pep:user`) : hors connexion, l'app reste utilisable même si le jeton ne peut pas être rafraîchi.
 - Session perdue : `loadSession()` distingue `'unknown'` (invérifiable : hors ligne, erreur réseau `isAuthRetryableFetchError` → on garde le cache) de `'none'` (définitivement absente : jeton expiré ou révoqué). Dans ce second cas — au lancement (`init`), à la synchro, ou sur l'événement `SIGNED_OUT` hors déconnexion volontaire — `expireSession()` oublie l'utilisateur en cache et renseigne `sessionExpired` (`'startup'` / `'live'`) ; `app.vue` affiche « Session expirée » et, en cours d'utilisation, renvoie vers `/connexion?redirect=…`. La base locale est conservée : les modifications en attente partent à la reconnexion.
-- Le rôle admin est lu dans `app_admins` et mis en cache (`pep:admin`). Il ne sert qu'à l'affichage : les droits sont vérifiés par RLS.
+- Le rôle admin est lu dans `app_admins` et mis en cache (`pep:admin`). Il ne sert qu'à l'affichage : les droits sont vérifiés par RLS. Sans cache (première ouverture sur l'appareil), la garde de `/admin` attend la réponse du serveur (`roleLoaded()`) avant de décider.
 - `signUp` transmet le jeton d'invitation admin dans `options.data.app_invite`. Le contrôle est fait par les triggers `guard_signup` / `handle_new_user` (hérités de Pas ce soir) sur `auth.users`.
 - Le middleware global redirige vers `/connexion?redirect=…` les routes non publiques ; `/connexion`, `/nouveau-mot-de-passe` et `/inscription/*` sont publiques.
 
 ## 5. Données locales (Dexie)
 
-Une base IndexedDB **par utilisateur** : `popotte-<userId>` (`openDb(userId)`), pour ne jamais mélanger les données de deux comptes sur un même appareil.
+Une base IndexedDB **par utilisateur** : `popotte-<userId>` (`openDb(userId)`), pour ne jamais mélanger les données de deux comptes sur un même appareil. Elle est **conservée à la déconnexion** (choix délibéré) : les modifications non envoyées partent à la reconnexion et l'app se rouvre sans tout retélécharger ; en contrepartie, les données restent sur l'appareil.
 
 | Table Dexie | Table Supabase | Index |
 |---|---|---|
@@ -168,7 +169,7 @@ Pour faire évoluer le schéma local : ajouter un `db.version(n).stores({...})` 
 ### Envoi (push)
 
 1. `households` : upsert unitaire. `deleted_at` n'est envoyé que si l'utilisateur est propriétaire (sinon refus serveur).
-2. Puis, dans l'ordre des clés étrangères : `people`, `locations`, `foodTypes`, `products`, `receiptAliases`, `receiptLines`, `stockItems`, `movements`, `preferences`, `recipes`, par lots de 100, en **upsert** des colonnes déclarées dans `TABLES[...].fields`.
+2. Puis, dans l'ordre des clés étrangères : `people`, `locations`, `foodTypes`, `products`, `receiptAliases`, `receiptLines`, `stockItems`, `movements`, `preferences`, `recipes`, `pantryStaples`, `shoppingItems`, par lots de 100, en **upsert** des colonnes déclarées dans `TABLES[...].fields`.
 3. Lot refusé pour droits (`42501`, `PGRST301`) ou pour son contenu (`isRowError` : SQLSTATE de classe 22 ou 23 — valeur invalide, `check`, `not null`, clé étrangère, unicité) : renvoi ligne par ligne pour isoler la ligne fautive.
    - Droits refusés : la ligne est journalisée puis marquée propre (ex. foyer quitté entre-temps).
    - Contenu refusé : la ligne **reste `_dirty`** (rien n'est perdu) mais est notée dans `rejected` (en mémoire, clé `<table>:<id>` + `_lmod`) et écartée des envois suivants ; la synchro continue (autres lignes, autres tables, réception). `lastError` indique le nombre de lignes refusées et le premier message. Elle est retentée si elle est modifiée, après toute écriture locale (`schedule()` vide `rejected`) et au prochain lancement.
@@ -317,12 +318,13 @@ npm install
 cp .env.example .env     # NUXT_PUBLIC_SUPABASE_URL, NUXT_PUBLIC_SUPABASE_KEY
 npm run dev              # http://localhost:3000
 npm run typecheck
+npm test                 # tests unitaires (Vitest) ; npm run test:watch pour relancer à chaque modification
 npm run generate         # .output/public
 npm run preview
 npm run icons            # régénère les icônes depuis public/icon.svg
 ```
 
-- `vercel.json` : `npm ci`, `npm run generate`, sortie `.output/public`, réécriture de toutes les routes vers `index.html`, `sw.js` jamais mis en cache, `/_nuxt/*` immuable.
+- `vercel.json` : `npm ci`, `npm test && npm run generate` (un test en échec annule le déploiement), sortie `.output/public`, réécriture de toutes les routes vers `index.html`, `sw.js` jamais mis en cache, `/_nuxt/*` immuable.
 - Variables Vercel : `NUXT_PUBLIC_SUPABASE_URL`, `NUXT_PUBLIC_SUPABASE_KEY` (clé `anon`, publique par nature : la sécurité repose sur la RLS).
 - Supabase : ajouter `https://popotte-et-placard.vercel.app/**` dans *Authentication → Redirect URLs* (liens de confirmation et de réinitialisation).
 

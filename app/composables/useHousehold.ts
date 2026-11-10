@@ -1,13 +1,13 @@
 import type { Table } from 'dexie'
+import type {
+  FoodType, Household, Ingredient, Location, MovementKind, PantryStaple, Person, Preference,
+  PreferenceLevel, Product, Recipe, ShoppingItem, StockItem, StockMovement
+} from '~/utils/db'
 
 /** Table Dexie dont on modifie une ligne par identifiant */
 interface Updatable {
   update(key: string, changes: never): PromiseLike<number>
 }
-import type {
-  FoodType, Household, Ingredient, Location, MovementKind, PantryStaple, Person, Preference,
-  PreferenceLevel, Product, Recipe, ShoppingItem, StockItem, StockMovement
-} from '~/utils/db'
 
 function nowIso() {
   return new Date().toISOString()
@@ -23,7 +23,6 @@ function dirty() {
   return { _dirty: 1 as const, _lmod: Date.now() }
 }
 
-/** Propriétaire d'une préférence ou d'une recette : mon compte, ou une personne d'un foyer */
 /**
  * Propriétaire d'une préférence ou d'une recette : mon compte, une personne d'un foyer,
  * ou le foyer lui-même (recette commune ; pas de préférence de foyer)

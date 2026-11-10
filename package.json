@@ -9,6 +9,8 @@
     "preview": "npx serve .output/public -s",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "icons": "pwa-assets-generator"
   },
   "dependencies": {
@@ -27,6 +29,7 @@
     "@types/node": "^24.19.2",
     "@vite-pwa/assets-generator": "^1.0.4",
     "typescript": "^5.9.3",
+    "vitest": "^5.1.0",
     "vue-tsc": "^3.3.13"
   }
 }

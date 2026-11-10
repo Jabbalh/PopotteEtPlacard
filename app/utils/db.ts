@@ -252,14 +252,11 @@ export type SyncedTable = typeof SYNCED_TABLES[number]
 
 const instances = new Map<string, AppDb>()
 
-/** Supprime définitivement la base locale d'un utilisateur */
-export async function deleteDb(userId: string) {
-  const db = openDb(userId)
-  instances.delete(userId)
-  await db.delete()
-}
-
-/** Une base IndexedDB par utilisateur : pas de mélange de données entre comptes */
+/**
+ * Une base IndexedDB par utilisateur : pas de mélange de données entre comptes.
+ * Elle est conservée à la déconnexion (ou à l'expiration de la session) : les modifications
+ * non envoyées partent à la reconnexion, et l'app se rouvre sans tout retélécharger.
+ */
 export function openDb(userId: string): AppDb {
   let db = instances.get(userId)
   if (!db) {

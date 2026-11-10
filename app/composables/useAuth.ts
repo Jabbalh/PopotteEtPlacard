@@ -34,6 +34,8 @@ const ready = ref(false)
  */
 const sessionExpired = ref<false | 'startup' | 'live'>(false)
 let initPromise: Promise<void> | null = null
+/** lecture du rôle admin en cours (ou terminée) */
+let rolePromise: Promise<void> | null = null
 /** déconnexion demandée par l'utilisateur en cours (l'événement SIGNED_OUT n'est alors pas une expiration) */
 let signingOut = false
 
@@ -94,12 +96,24 @@ export function useAuth() {
   const supabase = useSupabase()
 
   /** Charge le rôle admin (hors ligne : dernière valeur connue) */
-  async function loadRole(u: AppUser) {
+  function loadRole(u: AppUser) {
     isAdmin.value = readCachedAdmin(u.id)
-    const { data, error } = await supabase.from('app_admins').select('user_id').eq('user_id', u.id).maybeSingle()
-    if (error) return
-    isAdmin.value = !!data
-    writeCachedAdmin(data ? u.id : null)
+    rolePromise = (async () => {
+      const { data, error } = await supabase.from('app_admins').select('user_id').eq('user_id', u.id).maybeSingle()
+      // un autre compte s'est connecté entre-temps : sa propre lecture fait foi
+      if (error || user.value?.id !== u.id) return
+      isAdmin.value = !!data
+      writeCachedAdmin(data ? u.id : null)
+    })().catch(() => { /* hors ligne : dernière valeur connue */ })
+    return rolePromise
+  }
+
+  /**
+   * Attend la lecture du rôle en cours. `isAdmin` vaut d'abord la dernière valeur connue :
+   * sans cache (première visite sur l'appareil), il est faux tant que le serveur n'a pas répondu.
+   */
+  function roleLoaded(): Promise<void> {
+    return rolePromise ?? Promise.resolve()
   }
 
   /**
@@ -198,5 +212,5 @@ export function useAuth() {
     }
   }
 
-  return { user, isAdmin, ready, sessionExpired, init, loadSession, expireSession, signIn, signUp, signOut, resetPassword, updatePassword }
+  return { user, isAdmin, ready, sessionExpired, init, roleLoaded, loadSession, expireSession, signIn, signUp, signOut, resetPassword, updatePassword }
 }
